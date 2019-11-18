@@ -49,6 +49,16 @@ set(CMAKE_C_FLAGS_DEBUG "${debug_flags}")
 # Compile sources into objects
 add_library(${vollib}_objs OBJECT ${vollib_sources})
 
+##---CMake Variables
+#file(WRITE "cmakevars.txt" "PyNVEL CMake Variables")
+#get_cmake_property(_variableNames VARIABLES)
+#foreach (_variableName ${_variableNames})
+#    file(APPEND
+#            "cmakevars.txt"
+#            "${_variableName}=${${_variableName}}\n"
+#            )
+#endforeach()
+
 # Create a static library
 add_library(${vollib}_static STATIC $<TARGET_OBJECTS:${vollib}_objs>)
 target_sources(${vollib}_static PRIVATE) # FIXME: Workaround for bug with object library builds
