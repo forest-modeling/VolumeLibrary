@@ -80,7 +80,22 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 ! 20230104 Correted the errflag for checking DBHOB and HTTOT in caldib and profile and also Removed errflag from stump vol calc in volinit 
 ! 20230118 Changed R1 Mrules min topwood length MINLENT to 16 
 ! 20230124 Corrected changes in profile made on 20200219 for call SEGMNT in CUPFLG   
-! 20230221 Added NSVB volume and biomass equations and VOLLIBCSNEW, VOLUMELIBRARY2 and vollibnew_r for DLL       
+! 20230221* Added NSVB volume and biomass equations and VOLLIBCSNEW, VOLUMELIBRARY2 and vollibnew_r for DLL   
+! 20230223 Updated R6 Wallowa-Whitman NF(16) Whitman Ranger District number to 31 and Changed R1 Prod 08 minimum merch length MERCHL to 16   
+! 20230310 Corrected R3 merch rules for MINLEN, MINLENT and OPT. It was not set correctly in the library based on R3 rules.  
+! 20230314 Modified NVBC to calculate sawtimber and merch volume to be as that in the paper not sum of logvol
+!          Also modified volinitnew for DRYBIO and GRNBIO based on the merch volume from non-NVB equation
+!20230315 Corrected error in BIOLIB and BIOLIB2 for the Excel function     
+!20230403* Added R1 wight factor and changed subroutine name with _NEW to _NVB    
+!20230526 Added GETWTFAC subroutine to volumelibrary.f to get default weight factor for Excel function    
+!20230605 Modified vollibfsveg to reset the REGN and FORST for R1 BEH equation to get the default form class   
+!20230609 Modified r8prep to set DIB17 = 0.1 to avoid divided by 0 error when DIB17 <= 0      
+!20230622 Modified r9cuft calculation to handle very small number 2^-126 and r9prep call mrules and also check mtops and mtopp in mrules
+!20230802* Combined BTR for DF(202) to make 300FW2W202  
+!20230809 Fixed bugs found by FVS testing.  
+!20230818 Added MINLENT initial values in MRULES for R8 and R9 and topwood log calc for LEFTOV > MINLEN   
+!20231106 Modified nsvb.f bole biomass calc with CULL and other minor changes with test for FIADB vol and biomass      
+!         Check STUMP>0 before stump vol calc
 !...  Contains the volume library version number
 !...  This is simply the date of the latest release/version
 
@@ -110,7 +125,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !   15    FORMAT (A)   
 !   		END IF
 
-      VERSION = 20230221
+      VERSION = 20231106
       RETURN
       END SUBROUTINE VERNUM
       
@@ -143,7 +158,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !   15    FORMAT (A)   
 !   		END IF
 
-      VERSION = 20230221
+      VERSION = 20231106
       RETURN
       END SUBROUTINE VERNUM2
 
@@ -166,7 +181,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 
 !---------------------------------------------------------------------
      
-      VERSION = 20230221
+      VERSION = 20231106
       
       PRINT     '(I8)', VERSION
       RETURN
@@ -179,6 +194,6 @@ C     R program need subroutine name to be all lower case
       !DEC$ ATTRIBUTES C, REFERENCE, ALIAS:'vernum_r_'::vernum_r
 
       integer version
-      version = 20230221
+      version = 20231106
       return
       end subroutine vernum_r

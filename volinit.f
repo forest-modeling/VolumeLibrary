@@ -37,6 +37,8 @@ C YW 2022/05/03 Set the total cubic vol to VOL(4) if MTOPP=0.1
 C YW 2022/08/08 added variable STUMP to the call DVEST
 C YW 2022/10/25 Fix the change made on 2022/05/03 to check VOL(1) before reset VOL(4)
 C YW 2022/11/23 Added the call TOP6LEN R2 Black Hills equation 223DVEW122
+C YW 2023/06/05 Modified VOLINITNVB for resetting CTYPE
+! YW 2023/08/18 Check STUMP>0 before calc stump vol
 !**********************************************************************
       CHARACTER*1  HTTYPE,LIVE,CTYPE,VOLEQREGN
       CHARACTER*2  FORST,PROD
@@ -534,37 +536,39 @@ C AND ALL OTHER RD (EXCEPT ANDREW PICKENS(02)) OF FRANCIS MARION & SUTTER(12)
       ENDIF
 C  calc Tip volume and save to VOL(15)
       IF(ERRFLAG.GT.0) RETURN
-      IF(VOL(14).LE.0.0) THEN  !start stump vol calc
-      IF(STUMP.LE.0) STUMP = 1.0
+      IF(VOL(14).LE.0.0.AND.STUMP.GT.0) THEN  !start stump vol calc
+      !Do not calculate stump vol for STUMP=0    
+        !IF(STUMP.LE.0) STUMP = 1.0
 C  calc stump DIB
-      HTUP = STUMP
-      IF((REGN.EQ.9.OR.(VOLEQ(1:1).EQ.'8'.AND.VOLEQ(3:3).EQ.'1'))
-     + .AND.HTTOT.EQ.0)THEN
+          HTUP = STUMP
+          IF((REGN.EQ.9.OR.(VOLEQ(1:1).EQ.'8'.AND.VOLEQ(3:3).EQ.'1'))
+     +    .AND.HTTOT.EQ.0)THEN
 c        UPSHT1=HT1PRD
 c        UPSD1 = MTOPP
 c        UPSHT2 = HT2PRD
 c        UPSD2 = MTOPS
-        CALL CALCDIA2(REGN,FORST,VOLEQ,STUMP,DBHOB,
+          CALL CALCDIA2(REGN,FORST,VOLEQ,STUMP,DBHOB,
      &    DRCOB,HTTOT,HT1PRD,HT2PRD,MTOPP,MTOPS,HTREF,AVGZ1,
      &    AVGZ2,FCLASS,DBTBH,BTR,HTUP,DIB,DOB,ERRFLAG)   
 
-      ELSE
-        CALL CALCDIA2(REGN,FORST,VOLEQ,STUMP,DBHOB,
+        ELSE
+          CALL CALCDIA2(REGN,FORST,VOLEQ,STUMP,DBHOB,
      &    DRCOB,HTTOT,UPSHT1,UPSHT2,UPSD1,UPSD2,HTREF,AVGZ1,
      &    AVGZ2,FCLASS,DBTBH,BTR,HTUP,DIB,DOB,ERRFLAG)   
-      ENDIF
+        ENDIF
 !     Not returning error code from stump DIB calc 12/28/2022 (YW)
-      IF(ERRFLAG.GT.0) ERRFLAG = 0
-      IF(DIB.GT.0.0) VOL(14)=0.005454154*DIB**2*STUMP
-      ENDIF  !end stump vol calc
+        IF(ERRFLAG.GT.0) ERRFLAG = 0
+        IF(DIB.GT.0.0) VOL(14)=0.005454154*DIB**2*STUMP
 C  If stump DIB is not calculated, use the following to calculate stump VOL         
-      IF(VOL(14).LE.0.0)THEN
-        SPECIES = VOLEQ(8:10)
-        READ(SPECIES,'(i3)') SPEC
-        HTUP = STUMP
-        CALL RAILEVOL(SPEC, DBHOB, HTUP, VOLIB, VOLOB)
-        VOL(14) = VOLIB
-      ENDIF
+        IF(VOL(14).LE.0.0)THEN
+          SPECIES = VOLEQ(8:10)
+          READ(SPECIES,'(i3)') SPEC
+          HTUP = STUMP
+          CALL RAILEVOL(SPEC, DBHOB, HTUP, VOLIB, VOLOB)
+          VOL(14) = VOLIB
+        ENDIF
+      ENDIF  !end stump vol calc
+      
 !     Calculate the tip volume as the volume above last log
       IF(TLOGS.GT.0.AND.LOGDIA(TLOGS+1,2).GT.0.AND.VOL(15).EQ.0)THEN
           MHT = 0.0
@@ -643,7 +647,8 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
       END SUBROUTINE VOLINIT
 !----------------------------------------------------------------------
 ! This subroutine volinitnew enable the use of new National-scale volume and biomass equation
-      SUBROUTINE VOLINITNEW(REGN,FORST,VOLEQ,MTOPP,MTOPS,STUMP,DBHOB,
+      !2023/03/21 Changed the subroutine name to volinitnvb and reset CTYPE for non-NVB Eq
+      SUBROUTINE VOLINITNVB(REGN,FORST,VOLEQ,MTOPP,MTOPS,STUMP,DBHOB,
      +    DRCOB,HTTYPE,HTTOT,HTLOG,HT1PRD,HT2PRD,UPSHT1,UPSHT2,UPSD1,
      +    UPSD2,HTREF,AVGZ1,AVGZ2,FCLASS,DBTBH,BTR,CR,CULL,DECAYCD,
      +    VOL,LOGVOL,LOGDIA,LOGLEN,BOLHT,TLOGS,NOLOGP,NOLOGS,CUTFLG,
@@ -666,8 +671,8 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
       REAL VOL(15),LOGVOL(7,20),LOGDIA(21,3),LOGLEN(20),BOLHT(21)
       REAL NVBVOL(15),NVBLOGVOL(7,20),NVBLOGDIA(21,3),NVBLOGLEN(20)
       REAL NVBBOLHT(21),CR,CULL
-      INTEGER FIASPCD,MRULEFLG,DECAYCD
-      REAL BRKHT,BRKHTD,DRYBIO(15),GRNBIO(15)
+      INTEGER FIASPCD,MRULEFLG,DECAYCD,ERRFLAG2,I,J
+      REAL BRKHT,BRKHTD,DRYBIO(15),GRNBIO(15),Vfactor
       CHARACTER*3 SPCD
       TYPE(MERCHRULES)::MERRULES
       
@@ -687,6 +692,8 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
       TLOGS = 0
       NOLOGP = 0
       NOLOGS = 0
+      Vfactor = 1
+      ERRFLAG2 = 0
       IF(IDIST.EQ.0) IDIST = 1
       WRITE (DIST, '(I2)') IDIST
       IF(FORST(2:2).LT.'0'.OR.FORST(2:2).GT.'9') THEN
@@ -716,9 +723,21 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
           CALL NVBC(REGN,FORST,DIST,VOLEQ,DBHOB,HTTOT,MTOPP,MTOPS,
      + HT1PRD,HT2PRD,STUMP,PROD,BRKHT,BRKHTD,LIVE,CR,CULL,DECAYCD,
      + LOGLEN,LOGDIA,LOGVOL,BOLHT,
-     + TLOGS,NOLOGP,NOLOGS,VOL,DRYBIO,GRNBIO,ERRFLAG,FIASPCD)
+     + TLOGS,NOLOGP,NOLOGS,VOL,DRYBIO,GRNBIO,ERRFLAG,FIASPCD,CTYPE)
       ELSE
           V_EQN = VOLEQ(1:10)
+          !When using FIA equation number like CU000001 or BD000001, the FIASPCD is passed in from CONSPEC variable
+          IF(VOLEQ(1:2).EQ.'CU'.OR.VOLEQ(1:2).EQ.'BD') THEN
+              IF(FIASPCD.GT.999)THEN
+                  WRITE(CONSPEC, '(I4)') FIASPCD
+              ELSEIF(FIASPCD.GT.99)THEN
+                  WRITE(CONSPEC, '(I3)') FIASPCD
+              ELSEIF(FIASPCD.GT.9)THEN
+                  WRITE(CONSPEC, '(I2)') FIASPCD
+              ENDIF
+          ENDIF
+          !Set CTYPE to B to make the calc same as FIA except the MTOPP and MTOPS
+          !IF(CTYPE.NE.'I') CTYPE = 'B'
           CALL VOLINIT(REGN,FORST,V_EQN,MTOPP,MTOPS,STUMP,DBHOB,
      +    DRCOB,HTTYPE,HTTOT,HTLOG,HT1PRD,HT2PRD,UPSHT1,UPSHT2,UPSD1,
      +    UPSD2,HTREF,AVGZ1,AVGZ2,FCLASS,DBTBH,BTR,I3,I7,I15,I20,I21,
@@ -726,17 +745,55 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
      +    BFPFLG,CUPFLG,CDPFLG,SPFLG,CONSPEC,PROD,HTTFLL,LIVE,
      +    BA,SI,CTYPE,ERRFLAG,IDIST)
           IF(FIASPCD.EQ.0) READ (V_EQN(8:10),'(I3)') FIASPCD
-          CALL NVB_DefaultEq(REGN,FORST,DIST,FIASPCD,NVBEQN)
-          NVBVOL = 0
-          NVBLOGVOL = 0
-          NVBLOGLEN = 0
-          NVBLOGDIA = 0
-          NVBBOLHT = 0
+          CALL NVB_DefaultEq(REGN,FORST,DIST,FIASPCD,NVBEQN,ERRFLAG)
+          IF(ERRFLAG.GT.0) RETURN
+          !NVBVOL = 0
+          !NVBLOGVOL = 0
+          !NVBLOGLEN = 0
+          !NVBLOGDIA = 0
+          !NVBBOLHT = 0
+          
+          DO 102,I=1,20
+             DO 103, J=1,7
+               NVBLOGVOL(J,I) = 0.0
+  103        CONTINUE        
+             NVBLOGDIA(I,1) = 0.0
+             NVBLOGDIA(I,2) = 0.0
+             NVBLOGDIA(I,3) = 0.0
+             NVBLOGLEN(I) = 0.0
+             NVBBOLHT(I) = 0.0
+  102     CONTINUE        
+       
+          DO 104, I=1,15
+             NVBVOL(I) = 0.0
+  104     CONTINUE
+          
+          !Set CTYPE to B to make the calc same as FIA except the MTOPP and MTOPS
+          IF(CTYPE.NE.'I') CTYPE = 'B'
           CALL NVBC(REGN,FORST,DIST,NVBEQN,DBHOB,HTTOT,MTOPP,MTOPS,
      +    HT1PRD,HT2PRD,STUMP,PROD,BRKHT,BRKHTD,
      +     LIVE,CR,CULL,DECAYCD,NVBLOGLEN,NVBLOGDIA,
      +    NVBLOGVOL,NVBBOLHT,TLOGS,NOLOGP,NOLOGS,NVBVOL,DRYBIO,GRNBIO,
-     +    ERRFLAG,FIASPCD)
+     +    ERRFLAG2,FIASPCD,CTYPE)
+          !Adjust the biomass result based on the merch volume from Cruise VOLEQ
+          IF(NVBVOL(4).GT.0.AND.VOL(4).GT.0)THEN
+              Vfactor = VOL(4)/NVBVOL(4)
+          ELSEIF(NVBVOL(1).GT.0.AND.VOL(1).GT.0)THEN
+              Vfactor = VOL(1)/NVBVOL(1)
+          ENDIF
+          DRYBIO = DRYBIO*Vfactor
+          GRNBIO = GRNBIO*Vfactor
+          !Set topwood biomass to 0 when VOL(7) = 0
+          IF(VOL(7).EQ.0)THEN
+              DRYBIO(10) = DRYBIO(10)+DRYBIO(8)
+              DRYBIO(8) = 0
+              DRYBIO(11) = DRYBIO(11)+DRYBIO(9)
+              DRYBIO(9) = 0
+              GRNBIO(10) = GRNBIO(10)+GRNBIO(8)
+              GRNBIO(8) = 0
+              GRNBIO(11) = GRNBIO(11)+GRNBIO(9)
+              GRNBIO(9) = 0
+          ENDIF
       ENDIF
       RETURN
       END

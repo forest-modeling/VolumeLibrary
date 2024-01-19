@@ -7,6 +7,7 @@
 ! Added DIB calculation for Behr equation (1/28/2014)
 ! Added stump diameter (from ground to 4.5 ft) calculation for non profile model using Raile 1983 (YW)
 ! YW 2016/01/13 Added BTR default value for Region 3 Santa Fe forest DF and PP
+! YW 2023/08/08 Corrected variable name error for DBHOB in CALCDIA2      
 !  CalcDia.f90 
 !  FUNCTIONS/SUBROUTINES exported from VOLLIB.dll:
 !	CALCDIA      - subroutine 
@@ -72,6 +73,8 @@ C **************************************************************
       REAL STUMPD,BUTTCF,CF0,B
       CHARACTER*11 VOLEQ11
       REAL Vib
+      REAL WDSG
+      INTEGER SPGRPCD
       
       TLH = 0.
 !     ARRAYS
@@ -80,7 +83,7 @@ C **************************************************************
 !   Added check for height 08/2022 DW       
 !   DBHOB and HTTOT use dofferent error code 12/28/2022      
       if(dbhob.lt.1 .or. HTTOT.lt.5) then
-        IF(DOBOB.LT.1.0) THEN
+        IF(DBHOB.LT.1.0) THEN
             errflag = 3
             goto 1000
         ENDIF
@@ -186,8 +189,9 @@ C     Added the calc for R2 small trees equation for Black Hills
 C     Added DIB calc for the NSVB equations
       ELSEIF(VOLEQ(1:3).EQ.'NVB')THEN
           VOLEQ11=VOLEQ
-          CALL NVB_Vib(VOLEQ11,DBHOB,HTTOT,Vib,ERRFLAG)
-          CALL NVB_DibAtHT(VOLEQ11,DBHOB,HTTOT,Vib,HTUP,DIB,ERRFLAG)
+          CALL NVB_Vib(VOLEQ11,DBHOB,HTTOT,Vib,ERRFLAG,SPGRPCD,WDSG)
+          CALL NVB_DibAtHT(VOLEQ11,DBHOB,HTTOT,Vib,HTUP,DIB,ERRFLAG,
+     +     SPGRPCD,WDSG)
 C calculation for diameter from ground to 4.5 ft heigh for non profile model
 C added on 7/22/2012 YW
 C using Raile 1982
