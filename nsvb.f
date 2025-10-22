@@ -382,7 +382,8 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
       IF(HT1PRD.LE.0) HT1PRD = HTsaw
       ! (6) calculate merch, topwood(tw) and tip volumes
       NLOGS = 0
-      IF(HT2PRD.LE.0)THEN
+      !Added check MTOPS < DBHOB (2025/10/20)
+      IF(HT2PRD.LE.0.AND.MTOPS.LT.DBHOB)THEN
           IF(CTYPE.EQ.'I'.OR.CTYPE.EQ.'i')THEN
               CALL NVB_HT2TOPDob(VOLEQ,DBHOB,HTTOT,Vtotob2,MTOPS,HT2PRD,
      &        ERRFLG,SPGRPCD,WDSG)
@@ -980,6 +981,11 @@ C For TOPD inside bark, input TCUFT inside bark and inside bark coef (a,b)
       loopcnt = 0
       DO WHILE (ABS(diff).GT.0.001)
           mid = (low+hi)/2  
+          !Stop calculation when mid < stump ht (2025/10/21)
+          IF(mid.LT.0.5)THEN
+              mid = 0
+              EXIT
+          ENDIF
           X = mid/HTTOT  
           diff = TOPD - ((TCUFT/0.005454154/HTTOT*a*b*
      +    (1-X)**(a-1)*(1-(1-X)**a)**(b-1)))**0.5

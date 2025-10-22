@@ -125,6 +125,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !      checked max number logs (20) before call numlogs.f to catch error code for more than 20 logs
 !20250805 Added weight factor for Juniper (60 and 64) for region 6 forest 01 and 07.
 !20250822 Added check for REGN=10 in nolinit.f for CUR and DEM equation.
+!20251021 Modified nsvb.f to check MTOPS < DBHOB and limit the Ht to not below stump     
 !...  Contains the volume library version number
 !...  This is simply the date of the latest release/version
 
@@ -154,7 +155,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !   15    FORMAT (A)   
 !   		END IF
 
-      VERSION = 20250822
+      VERSION = 20251021
       RETURN
       END SUBROUTINE VERNUM
       
@@ -187,7 +188,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !   15    FORMAT (A)   
 !   		END IF
 
-      VERSION = 20250822
+      VERSION = 20251021
       RETURN
       END SUBROUTINE VERNUM2
 
@@ -210,7 +211,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 
 !---------------------------------------------------------------------
      
-      VERSION = 20250822
+      VERSION = 20251021
       
       PRINT     '(I8)', VERSION
       RETURN
@@ -223,6 +224,6 @@ C     R program need subroutine name to be all lower case
       !DEC$ ATTRIBUTES C, REFERENCE, ALIAS:'vernum_r_'::vernum_r
 
       integer version
-      version = 20250822
+      version = 20251021
       return
       end subroutine vernum_r
