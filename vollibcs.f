@@ -79,7 +79,7 @@ C**********************************************************************
       INTEGER        IDIST
       
       !test voinitnew variable
-      REAL CR,CULL,BRKHT,BRKHTD
+      REAL CR,CULL,BRKHT,BRKHTD,CULLMSTOP
       INTEGER DECAYCD,FIASPCD,MRULEFLG
       REAL DRYBIO(15), GRNBIO(15)
       CHARACTER*11 VOLEQ11
@@ -132,6 +132,7 @@ c      CALL vollib_r(VOLEQ,REGN,DBHOB,HTTOT,TCU,ERRFLAG)
           !test voinitnew
           CR = 0
           CULL=0
+          CULLMSTOP = 0
           DECAYCD = 0
           FIASPCD = 0
           BRKHT = 0
@@ -144,7 +145,7 @@ c      CALL vollib_r(VOLEQ,REGN,DBHOB,HTTOT,TCU,ERRFLAG)
      +    VOL,LOGVOL,LOGDIA,LOGLEN,BOLHT,TLOGS,NOLOGP,NOLOGS,CUTFLG,
      +    BFPFLG,CUPFLG,CDPFLG,SPFLG,CONSPEC,PROD,HTTFLL,LIVE,
      +    BA,SI,CTYPE,ERRFLAG,IDIST,BRKHT,BRKHTD,FIASPCD,DRYBIO,
-     +    GRNBIO,MRULEFLG,MERRULES)
+     +    GRNBIO,MRULEFLG,MERRULES,CULLMSTOP)
      
       ELSE IF (PMTFLG .EQ. 2) THEN
     
@@ -614,7 +615,7 @@ C________________________________________________________________________
       
       CHARACTER(2)   FORST
       CHARACTER(12)  BMSEQ(8), BEQ 
-      CHARACTER(40) REF(8)
+      CHARACTER(50) REF(8)
       
       FORST   = FORSTI(1:2)
       
@@ -650,19 +651,20 @@ C     !add null terminator required by C# strings
       END
 C ----------------------------------------------------------------------------------------
       SUBROUTINE CRZBIOMASSCS(REGN,FORSTI,SPCD,DBHOB,DRCOB,HTTOT,FCLASS,
-     +   VOL,WF,BMS,ERRFLG)
+     +   VOL,WF,BMS,ERRFLG,PRODI)
 ! Expose subroutine CRZBIOMASSCS to C# users of this DLL
       !DEC$ ATTRIBUTES DLLEXPORT::CRZBIOMASSCS
 
       IMPLICIT NONE
       INTEGER REGN, SPCD, ERRFLG, FCLASS
       REAL DBHOB, HTTOT, VOL(15), WF(3), BMS(8), WFI(3), DRCOB
-      CHARACTER*(*) FORSTI
-      CHARACTER(2) FORST
+      CHARACTER*(*) FORSTI,PRODI
+      CHARACTER(2) FORST,PROD
       
       FORST   = FORSTI(1:2)
+      PROD = PRODI(1:2)
       CALL CRZBIOMASS(REGN,FORST,SPCD,DBHOB,DRCOB,HTTOT,FCLASS,
-     &      VOL,WF,BMS,ERRFLG)
+     &      VOL,WF,BMS,ERRFLG,PROD)
 C     !add null terminator required by C# strings
       FORSTI = FORST // char(0)
       END
@@ -741,7 +743,7 @@ C**********************************************************************
       CHARACTER(11)  VOLEQ11
       CHARACTER(1)   HTTYPE,LIVE,CTYPE
       CHARACTER(4)   CONSPEC
-      REAL           LOGVOL(7,20),LOGDIA(21,3),CR,CULL 
+      REAL           LOGVOL(7,20),LOGDIA(21,3),CR,CULL,CULLMSTOP 
       INTEGER        IDIST,MRULEFLG,DECAYCD,SPFLG,FIASPCD
 !- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -761,6 +763,7 @@ C**********************************************************************
       LOGVOL = RESHAPE(LOGVOLI, SHAPE(LOGVOL))
       LOGDIA = RESHAPE(LOGDIAI, SHAPE(LOGDIA))
       ERRFLAG = 0
+      CULLMSTOP = 0
       MRULEFLG = PMTFLG
       CALL VOLINITNVB(REGN,FORST,VOLEQ11,MTOPP,MTOPS,STUMP,DBHOB,
      +    DRCOB,HTTYPE,HTTOT,HTLOG,HT1PRD,HT2PRD,UPSHT1,UPSHT2,UPSD1,
@@ -768,7 +771,7 @@ C**********************************************************************
      +    VOL,LOGVOL,LOGDIA,LOGLEN,BOLHT,TLOGS,NOLOGP,NOLOGS,CUTFLG,
      +    BFPFLG,CUPFLG,CDPFLG,SPFLG,CONSPEC,PROD,HTTFLL,LIVE,
      +    BA,SI,CTYPE,ERRFLAG,IDIST,BRKHT,BRKHTD,FIASPCD,DRYBIO,
-     +    GRNBIO,MRULEFLG,MERRULES)
+     +    GRNBIO,MRULEFLG,MERRULES,CULLMSTOP)
       
       !add null terminator required by C# strings
       !FORSTI = FORST // char(0)
@@ -786,4 +789,21 @@ C**********************************************************************
  
       RETURN
       END SUBROUTINE VOLLIBCSNVB
+! ---------------------------------------------------------------------
+      SUBROUTINE GETREGNWFCS(REGN,FORSTI,SPCD,PRODI,GRNWF,DEADWF)
+! Expose subroutine GETREGNWFCS to C# users of this DLL
+      !DEC$ ATTRIBUTES DLLEXPORT::GETREGNWFCS
 
+      IMPLICIT NONE
+      INTEGER REGN, SPCD
+      CHARACTER*(*) FORSTI,PRODI      
+      CHARACTER(2)   FORST,PROD
+      REAL GRNWF,DEADWF
+      
+      FORST = FORSTI(1:2)
+      PROD = PRODI(1:2)
+      CALL GetRegnWF(REGN,FORST,SPCD,GRNWF,DEADWF,PROD)
+      
+      RETURN
+      END
+      

@@ -96,6 +96,36 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !20230818 Added MINLENT initial values in MRULES for R8 and R9 and topwood log calc for LEFTOV > MINLEN   
 !20231106 Modified nsvb.f bole biomass calc with CULL and other minor changes with test for FIADB vol and biomass      
 !         Check STUMP>0 before stump vol calc
+!20240410 (1)Modified VOLINITNVB to make woodland species use regional biomass equation for biomass calculation and Jenkins for foliage.  
+!         (2)Added variable initial value 0 to D2 and DIB in CALCDIA2 and BLMTAP and BEHTAP to avoid error. 
+!         (3)Added weight factor for R06F16(Wallowa Whitman) and DeadWeightFactor to RegDftData.inc
+!         (4)Updated R03 weight factor and set R4 regional wide weight factor
+!20240423 Modified VOLINITNVB to add variable NVBNOLOGP, NVBNOLOGS and NVBTLOGS     
+!20240429 Modified VOLINITNVB and vollibnvb_r to add new variable CULLMSTOP for missing top CULL      
+!20240513 Checked LIVE variable in VOINITNVB and NSVB subroutine   
+!20240605 Added input variable PROD to CRZBIOMASS and CRZBIOMASSCS subroutines for non-saw product biomass calculation using non-saw weight factor.    
+      !   Changed the default species in searching wdbkdada.inc to species 999 for invalid species instead of the TOPSPC
+      !   Also changed CRZBIOMASS to check WF input before call REGNSPDFT for regional default
+!20240626 Added cord volume calculation for NSVB equation.  
+!20240711 Added VOLLIBCPP to volapss.f for C++ interface subroutine   
+!20240805 Added vollibnvb2_2 to volumelibrary.f to allow input variable max log lenth MAXLOGLEN      
+!20241007 Added GETREGNWFCS for C# to get regional default live and dead weight factor and modified voleqdef.f.    
+!20241101 Modified VOLINITNVB to calculate biomass for DBH only trees using Jenkins method 
+!20241118 Modified VOLINITNVB to calculate GRNBIO using VOL and weight factor for cruise VOLEQ (not NVB equation)   
+!20250227 Modified nsvb.f and voiinit.f to set log weight to LOGVOL for CTYPE=Cruise and
+!         Updated R6_EQN for species Incense cedar(81) to use I00FW2W073 and Grand fir(17) to use I00FW2W017 in Willamette NF    
+!20250310 Fixed r9logs to make sure even logs and modified R9 MINLEN = 2
+!20250325 Updated volinit.f for biomass adjustment for cruise VOLEQ (non-NSVB equation) and
+!         updated R4 dead weight factor based on study data at Deer Hollow, Mt. Dutton, Navajo Basin      
+!20250401 Fixed nsvb.f to make sure HTTOT>0 for calculation and added CTYPE='B' chek for DBH only tree.
+!20250512 Fixed nsvb.f to calculate merch height for FIA (CTYPE='I') to be minimum 5, 
+!         applied denProp based on DECAYCD to woodland species biomass, and added species checck for 63 and 65 in woodland_bio   
+!20250527 Fixed volinit.f for potential divided by zero problem and modified voleqdef.f (R8_CEQN) species list to include all timber cruise species.      
+!20250701 Modified nsvb.f to add default DECAYCD (3), made correction in NVB_BrchRem subroutine and 
+!      checked max number logs (20) before call numlogs.f to catch error code for more than 20 logs
+!20250805 Added weight factor for Juniper (60 and 64) for region 6 forest 01 and 07.
+!20250822 Added check for REGN=10 in nolinit.f for CUR and DEM equation.
+!20251021 Modified nsvb.f to check MTOPS < DBHOB and limit the Ht to not below stump     
 !...  Contains the volume library version number
 !...  This is simply the date of the latest release/version
 
@@ -125,7 +155,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !   15    FORMAT (A)   
 !   		END IF
 
-      VERSION = 20231106
+      VERSION = 20251021
       RETURN
       END SUBROUTINE VERNUM
       
@@ -158,7 +188,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !   15    FORMAT (A)   
 !   		END IF
 
-      VERSION = 20231106
+      VERSION = 20251021
       RETURN
       END SUBROUTINE VERNUM2
 
@@ -181,7 +211,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 
 !---------------------------------------------------------------------
      
-      VERSION = 20231106
+      VERSION = 20251021
       
       PRINT     '(I8)', VERSION
       RETURN
@@ -194,6 +224,6 @@ C     R program need subroutine name to be all lower case
       !DEC$ ATTRIBUTES C, REFERENCE, ALIAS:'vernum_r_'::vernum_r
 
       integer version
-      version = 20231106
+      version = 20251021
       return
       end subroutine vernum_r

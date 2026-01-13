@@ -5,6 +5,8 @@ C 09/09/2016 Modified R3_EQN default equation for PP, DF, WF, and WP in Sante Fe
 C 09/15/2016 Corrected R4 default equation for other species to DVE equation
 C 04/12/2017 removed 532WO2W*** equation from R5_EQN per the email from Craig Bodenhausen (4/12/2017)
 C 07/19/2021 Changed R8_CEQN to use the R8 new Clark equation 8*1CLKE***. Added 1 to TOPCODE array.
+C 02/27/2025 Updated R6_EQN for species 81 Incense cedar to use I00FW2W073 in Willamette NF  
+! 2025/05/23 Updated R8_CEQN species list to include R8 cruise species      
       SUBROUTINE VOLEQDEF (VAR,REGN,FORST,DIST,SPEC,PROD,VOLEQ,ERRFLAG)
 C
 C    SUBROUTINE WILL RETURN THE DEFAULT VOLUME EQUATION NUMBER
@@ -241,6 +243,11 @@ C
         RETURN
       ENDIF
 C
+! Added species 70, 90 and 260 for CruiseProcessing (YW 09/09/2024)
+      IF(SPEC.EQ.70) SPEC = 73
+      IF(SPEC.EQ.90) SPEC = 93
+      IF(SPEC.EQ.260) SPEC = 263
+      
       LAST = 38
       READ(FORST,'(I2)')FORNUM
       DONE = 0
@@ -315,16 +322,17 @@ C     Silverleaf oak,   Other Hardwoods
      >                     475, 740, 745, 746, 749,
      >                     800, 803, 810, 814, 823,
      >                     843, 998/
-   
+! Changed the default equation for species 66 from 300DVEW060 to 200DVEW066
+! and species 814 default from 300DVEW800 to 200DVEW814 to match CruiseProcessing default (YW 9/9/2014)
       DATA (EQNUM(I),I=1,75)/
      >'200FW2W015','I00FW2W019','I00FW2W019','I00FW2W019','300DVEW060',
-     >'300DVEW060','200DVEW065','300DVEW060','300DVEW060','200DVEW069',
+     >'300DVEW060','200DVEW065','200DVEW066','300DVEW060','200DVEW069',
      >'407FW2W093','407FW2W093','407FW2W093','407FW2W093','200FW2W122',
      >'200FW2W122','200DVEW106','200FW2W108','200FW2W122','200FW2W122',
      >'200FW2W122','200FW2W122','300DVEW106','300DVEW106','300DVEW106',
      >'200FW2W202','407FW2W093','407FW2W093','300DVEW060','300DVEW999',
      >'200DVEW475','300DVEW999','300DVEW999','200FW2W746','300DVEW999',
-     >'300DVEW800','300DVEW800','300DVEW800','300DVEW800','200DVEW823',
+     >'300DVEW800','300DVEW800','300DVEW800','200DVEW814','200DVEW823',
      >'300DVEW800','200DVEW998','203FW2W122','213FW2W122','202FW2W108',
      >'200CZ2W202','200DVEW093','200CZ2W093','210DVEW093','200DVEW814',
      >'200DVEW108','210DVEW108','200CZ2W108','212DVEW122','213DVEW122',
@@ -415,16 +423,23 @@ C     Emory oak,              Gambel oak,       Bur oak,              Silverleaf
      >                     310, 314, 375, 475, 740, 
      >                     745, 746, 749, 800, 803, 
      >                     810, 814, 823, 843, 998/
-
+!Updated R3 defaults for the following species (YW 9/9/2024)
+      ! Species FROM        TO
+      !  15     301DVEW015  NVB0000015
+      !  18     300DVEW093  NVB0000015
+      !  93     300DVEW093  NVBM330093
+      ! 114     300DVEW113  NVBM240119
+      ! 202     301DVEW202  300FW2W202
+      ! 746     300DVEW746  NVB0000746
       DATA (EQNUM(I),I=1,52)/
-     >'301DVEW015','300DVEW093','300DVEW093','300DVEW093','300DVEW060',
+     >'NVB0000015','300DVEW093','NVB0000015','300DVEW093','300DVEW060',
      >'300DVEW060','300DVEW060','300DVEW060','300DVEW060','300DVEW060',
-     >'300DVEW060','301DVEW015','300DVEW093','300DVEW093','300DVEW093',
+     >'300DVEW060','301DVEW015','NVBM330093','300DVEW093','300DVEW093',
      >'300DVEW113','300DVEW113','300DVEW106','301DVEW202','300DVEW113',
-     >'300DVEW113','300DVEW122','300FW2W122','300DVEW106','300DVEW106',
-     >'300DVEW106','301DVEW202','301DVEW015','301DVEW015','300DVEW060',
+     >'NVBM240119','300DVEW122','300FW2W122','300DVEW106','300DVEW106',
+     >'300DVEW106','300FW2W202','301DVEW015','301DVEW015','300DVEW060',
      >'300DVEW310','300DVEW314','300DVEW999','300DVEW999','300DVEW999',
-     >'300DVEW999','300DVEW746','300DVEW999','300DVEW800','300DVEW800',
+     >'300DVEW999','NVB0000746','300DVEW999','300DVEW800','300DVEW800',
      >'300DVEW800','300DVEW800','300DVEW800','300DVEW800','300DVEW999',
      >'302DVEW202','302DVEW202','302DVEW015','301FW2W122','301FW2W202',
      >'301FW2W015','301FW2W108'/
@@ -448,32 +463,32 @@ C
       DONE = 0
 
       LAST = 45
-   
-      IF(SPEC.EQ.202.AND.(FORNUM.EQ.2.OR.FORNUM.EQ.3.OR.
-     >                    FORNUM.EQ.7)) THEN
-         DONE=46
-      ELSEIF(SPEC.EQ.15.AND.(FORNUM.EQ.2.OR.FORNUM.EQ.3.OR.
-     >                       FORNUM.EQ.7)) THEN
-         DONE=48
+! Remove Forest specific default for R3 (YW 9/9/2024)   
+!      IF(SPEC.EQ.202.AND.(FORNUM.EQ.2.OR.FORNUM.EQ.3.OR.
+!     >                    FORNUM.EQ.7)) THEN
+!         DONE=46
+!      ELSEIF(SPEC.EQ.15.AND.(FORNUM.EQ.2.OR.FORNUM.EQ.3.OR.
+!     >                       FORNUM.EQ.7)) THEN
+!         DONE=48
 C    using Fleweling profile model for Ponderosa pine in following forest:
 C    Apache Sitgreaves, Coconino, Kaibab, Tonto. The 300FW2W122 equation
 c    is default for PP, so tht other forests 2,3,5,6,8,9,10 and 11 are
 c    set to the DVE equation blow.
-      ELSEIF(SPEC.EQ.122.AND.(FORNUM.EQ.2.OR.FORNUM.EQ.3.OR.
-     >                        FORNUM.EQ.5.OR.FORNUM.EQ.6.OR.
-     >                        FORNUM.EQ.8.OR.FORNUM.EQ.9.OR.
-     >                        FORNUM.EQ.11))THEN
-         DONE=22
+!      ELSEIF(SPEC.EQ.122.AND.(FORNUM.EQ.2.OR.FORNUM.EQ.3.OR.
+!     >                        FORNUM.EQ.5.OR.FORNUM.EQ.6.OR.
+!     >                        FORNUM.EQ.8.OR.FORNUM.EQ.9.OR.
+!     >                        FORNUM.EQ.11))THEN
+!         DONE=22
 C    Added profile model for DF, PP, WF and WP to Santa Fe NF
-      ELSEIF(SPEC.EQ.122.AND.FORNUM.EQ.10) THEN
-         DONE = 49
-      ELSEIF(SPEC.EQ.202.AND.FORNUM.EQ.10) THEN
-         DONE = 50
-      ELSEIF(SPEC.EQ.15.AND.FORNUM.EQ.10) THEN
-         DONE = 51    
-      ELSEIF(SPEC.EQ.114.AND.FORNUM.EQ.10) THEN
-         DONE = 52           
-      ELSE
+!      ELSEIF(SPEC.EQ.122.AND.FORNUM.EQ.10) THEN
+!         DONE = 49
+!      ELSEIF(SPEC.EQ.202.AND.FORNUM.EQ.10) THEN
+!         DONE = 50
+!      ELSEIF(SPEC.EQ.15.AND.FORNUM.EQ.10) THEN
+!         DONE = 51    
+!      ELSEIF(SPEC.EQ.114.AND.FORNUM.EQ.10) THEN
+!         DONE = 52           
+!      ELSE
          FIRST = 1
 
           DO 5, WHILE (DONE.EQ.0)
@@ -489,7 +504,7 @@ C    Added profile model for DF, PP, WF and WP to Santa Fe NF
                 LAST = HALF - 1
              ENDIF
   5      CONTINUE 
-      ENDIF
+!      ENDIF
       IF(DONE .LT. 0)THEN
 C        Unknown
          VOLEQ = EQNUM(45)
@@ -691,8 +706,8 @@ C//////////////////////////////////////////////////////////////////
       CHARACTER*10 VOLEQ
       CHARACTER*2 FORST,VAR
       INTEGER SPEC,ERRFLAG
-      CHARACTER*10 EQNUM(107)
-      INTEGER FIA(71), FIRST, HALF, LAST, DONE, FORNUM,I
+      CHARACTER*10 EQNUM(108)
+      INTEGER FIA(72), FIRST, HALF, LAST, DONE, FORNUM,I
 
 C     SPECIES
 C     Pacific silver fir,    White fir,             Grand fir,           Subalpine fir,       California red fir,
@@ -705,12 +720,15 @@ C     Bigcone Douglas-fir,   Douglas-fir,
 C     Redwood,               Giant sequoia,         Pacific yew,         Western red cedar,   California nutmeg, 
 C     Western hemlock,       Mountain hemlock,      Other softwoods,     Koa,                 Bigleaf maple,
 C     California buckeye,    Red alder,             White alder          Pacific madrone,     Golden chinkapin, 
-C     Curl-leaf Mtn Mahogany,Birchleaf Mtn Mahogany,Pacific dogwood,     Eucalyptus,          Oregon Ash,
+C     Curl-leaf Mtn Mahogany,Birchleaf Mtn Mahogany,Pacific dogwood,     Eucalyptus,          Robusta Eucaltyptus,    Oregon Ash,
 C     Walnut,                Tanoak,                Ohia,                California sycamore, Quacking aspen, 
 C     Black cottonwood,      Bitter Cherry,         California live oak, Canyon live oak,     Blue oak, 
 C     Engelmann's oak,       Oregon white oak,      California black oak,California white oak,Interior live oak,
 C     Willow,                California laurel,     Other hardwoods,     unkown
-
+! Changed the default for species 17 to be same as CruiseProcessing default and added species 514
+! Species From       To
+!  17     500WO2W015 I15FW2W017
+! 514                H00SN2W510
       DATA (FIA(I),I=1,32)/   11,   15,   17,   19,   20,
      >                        21,   22,   41,   62,   64,
      >                        65,   73,   81,   92,   93,
@@ -718,17 +736,17 @@ C     Willow,                California laurel,     Other hardwoods,     unkown
      >                       113,  116,  117,  119,  122,
      >                       124,  127,  133,  137,  142,
      >                       201,  202/  
-      DATA (FIA(I),I=33,71)/ 211,  212,  231,  242,  251,
+      DATA (FIA(I),I=33,72)/ 211,  212,  231,  242,  251,
      >                       263,  264,  299,  301,  312,
      >                       333,  351,  352,  361,  431,
-     >                       475,  478,  492,  510,  542,
+     >                       475,  478,  492,  510,  514, 542,
      >                       600,  631,  671,  730,  746, 
      >                       747,  768,  801,  805,  807,
      >                       811,  815,  818,  821,  839,
      >                       920,  981,  998,  999/
 
-      DATA (EQNUM(I),I=1,107)/
-     >'500WO2W015','500WO2W015','500WO2W015','500WO2W020','500WO2W020',
+      DATA (EQNUM(I),I=1,108)/
+     >'500WO2W015','500WO2W015','I15FW2W017','500WO2W020','500WO2W020',
      >'500WO2W020','500WO2W020','500WO2W081','500DVEW060','500DVEW060',
      >'500DVEW060','500WO2W202','500WO2W081','500WO2W015','500WO2W015',
      >'500WO2W108','500WO2W108','500WO2W108','500WO2W108','500WO2W108',
@@ -738,7 +756,8 @@ C     Willow,                California laurel,     Other hardwoods,     unkown
      >'500WO2W211','500DVEW212','500WO2W108','500WO2W081','500DVEW807',
      >'500WO2W015','500WO2W015','500WO2W108','H00SN2W301','500DVEW312',
      >'500DVEW807','500DVEW351','500DVEW351','500DVEW361','500DVEW431',
-     >'500DVEW801','500DVEW801','500DVEW807','H01SN2W510','500DVEW807',
+     >'500DVEW801','500DVEW801','500DVEW807','H01SN2W510','H00SN2W510',
+     > '500DVEW807',
      >'500DVEW818','500DVEW631','H00SN2W671','500DVEW818','500DVEW818',
      >'500DVEW818','500DVEW801','500DVEW801','500DVEW805','500DVEW807',
      >'500DVEW811','500DVEW815','500DVEW818','500DVEW821','500DVEW839',
@@ -768,36 +787,6 @@ C
 C
       READ(FORST,'(I2)')FORNUM
       DONE = 0
-C     white fir
-c      IF(SPEC.EQ.15)THEN
-c          IF((VAR.EQ.'CA').OR.(VAR.EQ.'ca').OR.
-c     &       (VAR.EQ.'OC').OR.(VAR.EQ.'oc'))THEN
-c              IF((FORNUM.EQ.5).OR.(FORNUM.EQ.6).OR.
-c     >           (FORNUM.EQ.8).OR.(FORNUM.EQ.14))THEN
-C                 VOLEQ=EQNUM(72)
-c              DONE=72
-c              ENDIF
-c          ENDIF
-C     California red fir
-c      ELSEIF(SPEC.EQ.20)THEN
-c          IF((VAR.EQ.'CA').OR.(VAR.EQ.'ca').OR.
-c     &       (VAR.EQ.'OC').OR.(VAR.EQ.'oc'))THEN
-c              IF((FORNUM.EQ.5).OR.(FORNUM.EQ.6).OR.
-c     >           (FORNUM.EQ.8).OR.(FORNUM.EQ.14))THEN
-C                 VOLEQ=EQNUM(73)
-c              DONE=73
-c              ENDIF
-c          ENDIF
-C     incense cedar
-c      ELSEIF(SPEC.EQ.81)THEN
-c          IF((VAR.EQ.'CA').OR.(VAR.EQ.'ca').OR.
-c     &       (VAR.EQ.'OC').OR.(VAR.EQ.'oc'))THEN
-c              IF((FORNUM.EQ.5).OR.(FORNUM.EQ.6).OR.
-c     >           (FORNUM.EQ.8).OR.(FORNUM.EQ.14))THEN
-C                 VOLEQ=EQNUM(74)
-c                  DONE=74
-c              ENDIF
-c          ENDIF
 C     Whitebark pine
       IF(SPEC.EQ.101) THEN
           IF(VAR.EQ.'SO' .OR. VAR.EQ.'so') THEN
@@ -805,42 +794,6 @@ C     Whitebark pine
           ELSE
                DONE=40   
           ENDIF
-C     lodgepole pine
-c      ELSEIF(SPEC.EQ.108)THEN
-c          IF((VAR.EQ.'CA').OR.(VAR.EQ.'ca').OR.
-c     &       (VAR.EQ.'OC').OR.(VAR.EQ.'oc'))THEN
-c              IF((FORNUM.EQ.5).OR.(FORNUM.EQ.6).OR.
-c     >           (FORNUM.EQ.8).OR.(FORNUM.EQ.14))THEN
-c              DONE=75
-c              ENDIF
-c          ENDIF
-C     sugar pine
-c      ELSEIF(SPEC.EQ.117)THEN
-c          IF((VAR.EQ.'CA').OR.(VAR.EQ.'ca').OR.
-c     &       (VAR.EQ.'OC').OR.(VAR.EQ.'oc'))THEN
-c              IF((FORNUM.EQ.5).OR.(FORNUM.EQ.6).OR.
-c     >           (FORNUM.EQ.8).OR.(FORNUM.EQ.14))THEN
-c                 DONE=76
-c              ENDIF
-c          ENDIF
-C     ponderosa pine
-c      ELSEIF(SPEC.EQ.122)THEN
-c          IF((VAR.EQ.'CA').OR.(VAR.EQ.'ca').OR.
-c     &       (VAR.EQ.'OC').OR.(VAR.EQ.'oc'))THEN
-c              IF((FORNUM.EQ.5).OR.(FORNUM.EQ.6).OR.
-c     >           (FORNUM.EQ.8).OR.(FORNUM.EQ.14))THEN
-c                 DONE=77
-c              ENDIF
-c          ENDIF
-C     Douglas fir
-c      ELSEIF(SPEC.EQ.202)THEN
-c          IF((VAR.EQ.'CA').OR.(VAR.EQ.'ca').OR.
-c     &       (VAR.EQ.'OC').OR.(VAR.EQ.'oc'))THEN
-c              IF((FORNUM.EQ.5).OR.(FORNUM.EQ.6).OR.
-c     >           (FORNUM.EQ.8).OR.(FORNUM.EQ.14))THEN
-c                 DONE=78
-c              ENDIF
-c          ENDIF
 C     other softwoods
       ELSEIF(SPEC.EQ.299 .OR. SPEC.EQ.290) THEN
           IF(VAR.EQ.'SO' .OR. VAR.EQ.'so') THEN
@@ -863,7 +816,7 @@ C     other hardwoods
           ENDIF
 C      ELSE
        ENDIF
-       LAST = 71
+       LAST = 72
 
        FIRST = 1
 
@@ -882,7 +835,7 @@ C      ELSE
   5    CONTINUE 
       
        IF(DONE .LT. 0) THEN
-           VOLEQ = EQNUM(71)
+           VOLEQ = EQNUM(72)
        ELSE
            VOLEQ = EQNUM(DONE)   
        ENDIF
@@ -1070,8 +1023,6 @@ C
       DONEI = 0
       DONEF = 0
 
-c      WRITE(ASPEC,'(I3)')SPEC
-c      IF(ASPEC(1:1).EQ.' ')ASPEC(1:1) = '0'
 c     Westside Variants
       IF(VAR.EQ.'PN' .OR. VAR.EQ.'WC' .OR. VAR.EQ.'NC' .OR.
      >   VAR.EQ.'CA' .OR. VAR.EQ.'OC' .OR. VAR.EQ.'OP')THEN
@@ -1184,6 +1135,11 @@ c         Willamette
                 DONEF = 16
              ELSE IF(SPEC.EQ.263)THEN
                 DONEF = 12
+            !Added Incense Cedar (81) to use I00FW2W073 and Grand fir (17) to use I00FW2W017 (20250227)    
+             ELSE IF(SPEC.EQ.17)THEN
+                DONEI = 64
+             ELSE IF(SPEC.EQ.81)THEN
+                DONEI = 68
              ENDIF
          ENDIF
 
@@ -1907,34 +1863,59 @@ C//////////////////////////////////////////////////////////////////
       CHARACTER*1 GEOAREA,TOPCODE(5),ICHAR
       CHARACTER*2 PROD,VAR,FORST,DIST
       CHARACTER*10 VOLEQ,VEQTEM
-      CHARACTER*3 SNSP(92)
-      INTEGER SNFIA(92)
+      CHARACTER*3 SNSP(110)
+      INTEGER SNFIA(110)
       INTEGER SPEC,ERRFLAG,FORNUM,DISTNUM,FIRST,HALF,LAST,DONE,I,J,K
 
 c     match species to valid species equation code
-      DATA (SNFIA(I),I=1,92)/
-     >  10,  57,  90, 107, 110, 111, 115, 121, 123, 126, 128,
-     > 129, 130, 131, 132, 221, 222, 260, 299, 311, 313, 
-     > 316, 317, 318, 330, 370, 372, 391, 400, 450, 460, 
-     > 471, 491, 521, 531, 540, 541, 543, 544, 552, 555, 
-     > 580, 591, 601, 602, 611, 621, 650, 651, 652, 653, 
-     > 654, 660, 680, 691, 693, 694, 701, 711, 721, 731, 
-     > 740, 743, 762, 802, 806, 812, 813, 819, 820, 822, 
-     > 824, 825, 826, 827, 830, 832, 833, 834, 835, 837, 838, 
-     > 901, 920, 931, 950, 970, 971, 972, 975, 998, 999/
+!Updated the species list to include R8 cruise species (2025/05/23)
+!      DATA (SNFIA(I),I=1,92)/
+!     >  10,  57,  90, 107, 110, 111, 115, 121, 123, 126, 128,
+!     > 129, 130, 131, 132, 221, 222, 260, 299, 311, 313, 
+!     > 316, 317, 318, 330, 370, 372, 391, 400, 450, 460, 
+!     > 471, 491, 521, 531, 540, 541, 543, 544, 552, 555, 
+!     > 580, 591, 601, 602, 611, 621, 650, 651, 652, 653, 
+!     > 654, 660, 680, 691, 693, 694, 701, 711, 721, 731, 
+!     > 740, 743, 762, 802, 806, 812, 813, 819, 820, 822, 
+!     > 824, 825, 826, 827, 830, 832, 833, 834, 835, 837, 838, 
+!     > 901, 920, 931, 950, 970, 971, 972, 975, 998, 999/
 
-      DATA (SNSP(I), I=1,92)/
-     &'261','100','115','132','110','111','115','121','126','126',
-     &'128',
-     &'129','132','131','132','221','222','261','132','500','500',
-     &'316','300','500','330','370','370','370','400','300','460',
-     &'300','300','500','531','541','541','300','544','500','300',
-     &'300','300','500','500','611','621','652','300','652','653',
-     &'300','300','300','300','693','694','500','300','300','731',
-     &'300','300','300','802','806','812','813','800','800','822',
-     &'800','800','800','827','827','832','833','800','835','800',
-     &'835',
-     &'901','300','300','300','970','970','970','970','300','300'/
+!      DATA (SNSP(I), I=1,92)/
+!     &'261','100','115','132','110','111','115','121','126','126',
+!     &'128',
+!     &'129','132','131','132','221','222','261','132','500','500',
+!     &'316','300','500','330','370','370','370','400','300','460',
+!     &'300','300','500','531','541','541','300','544','500','300',
+!     &'300','300','500','500','611','621','652','300','652','653',
+!     &'300','300','300','300','693','694','500','300','300','731',
+!     &'300','300','300','802','806','812','813','800','800','822',
+!     &'800','800','800','827','827','832','833','800','835','800',
+!     &'835',
+!     &'901','300','300','300','970','970','970','970','300','300'/
+      DATA (SNFIA(I),I=1,110)/
+     >  10, 57, 90,100,107,110,111,115,121,123,
+     > 126,128,129,130,131,132,197,221,222,260,
+     > 261,299,300,311,313,314,316,317,318,330,
+     > 370,372,391,400,404,450,460,471,491,500,
+     > 521,531,540,541,543,544,545,546,550,552,
+     > 555,580,591,601,602,611,621,650,651,652,
+     > 653,654,660,680,691,693,694,701,711,721,
+     > 731,740,742,743,762,800,802,804,806,812,
+     > 813,817,819,820,822,823,824,825,826,827,
+     > 828,830,831,832,833,834,835,837,838,901,
+     > 920,930,931,950,970,971,972,975,998,999/
+      DATA (SNSP(I), I=1,110)/ 
+     > '261','100','115','100','107','110','111','115','121','123',
+     > '126','128','129','132','131','132','197','221','222','261',
+     > '261','132','300','500','313','314','316','317','318','330',
+     > '370','370','370','400','404','300','460','300','300','500',
+     > '521','531','541','541','300','544','545','546','550','500',
+     > '300','580','300','601','602','611','621','650','651','652',
+     > '653','300','300','300','691','693','694','500','711','300',
+     > '731','300','742','300','762','800','802','804','806','812',
+     > '813','817','800','820','822','823','800','825','826','827',
+     > '828','830','831','832','833','834','835','837','835','901',
+     > '920','930','300','950','970','970','970','970','300','300'/
 C
       DATA TOPCODE / '1','4','7','8','9' /
 C
@@ -1949,7 +1930,7 @@ C
         DO J=1,5
         VEQTEM(3:3)=TOPCODE(J)
 C  SN
-        DO K=1,92
+        DO K=1,110
         VEQTEM(8:10)=SNSP(K)
         IF(VOLEQ.EQ.VEQTEM)THEN
           SPEC=8888
@@ -2035,34 +2016,20 @@ C                     // Francis Marion/Sumpter
 C     CREATE THE VOLUME EQUATION NUMBER
       VOLEQ(1:1) = '8'
       VOLEQ(2:2) = GEOAREA
-C     Changed to use New Clark equation 8*1CLKE*** (YW 20210719)      
-!      IF(PROD.EQ.'01')THEN
-!         IF(SPEC.LT.300) THEN
-C           7 INCH TOP
-!            VOLEQ(3:3) = '7'
-!          ELSE
-C           9 INCH TOP
-!            VOLEQ(3:3) = '9'
-!          ENDIF
-!       ELSEIF (PROD.EQ.'08') THEN
-C           USE PRODUCT 08 LOGIC
+      !Comment out for PROD = '08' (2025/05/23)
+!       IF (PROD.EQ.'08') THEN
+!C           USE PRODUCT 08 LOGIC
 !          VOLEQ(3:3) = '8'
 !       ELSE
-C           4 INCH TOP
-!         VOLEQ(3:3) = '4'
+!         VOLEQ(3:3) = '1'
 !       ENDIF
-       IF (PROD.EQ.'08') THEN
-C           USE PRODUCT 08 LOGIC
-          VOLEQ(3:3) = '8'
-       ELSE
-         VOLEQ(3:3) = '1'
-       ENDIF
+      VOLEQ(3:3) = '1' 
       VOLEQ(4:7) = 'CLKE'
 
 C     FIND CORRECT SPECIES
       DONE = 0
       FIRST = 1
-      LAST = 92
+      LAST = 110
       DO 5, WHILE (DONE.EQ.0)
          HALF = (LAST - FIRST +1)/2 + FIRST
           IF(SNFIA(HALF) .EQ. SPEC)THEN
@@ -2079,9 +2046,9 @@ C     FIND CORRECT SPECIES
       IF(DONE .LT. 0) THEN
         IF(SPEC.LT.300) THEN
 C USE OTHER SOFTWOOD 299
-          DONE = 19
+          DONE = 22
         ELSE
-          DONE = 92
+          DONE = 110
         ENDIF
       ENDIF
 
@@ -2197,7 +2164,7 @@ C  SEARCH FOR VALID EQUATION NUMBER
 C  FIRST, SEARCH FOR CLKE OR DVEE
 C
       IF(SPEC.EQ.9999)THEN
-        IF((VOLEQ(1:7).EQ.'900CLKE').OR.(VOLEQ(1:7).EQ.'900DVEE'))THEN
+        IF((VOLEQ(1:7).EQ.'900CLKE').OR.(VOLEQ(4:7).EQ.'DVEE'))THEN
 C  LS
           DO J=1,69
           IF(VOLEQ(8:10).EQ.LSSP(J))THEN
@@ -2248,7 +2215,7 @@ C
         VOLEQ(8:10) = ASPEC
 
         RETURN
-      ELSEIF(VOLEQ(1:7).EQ.'900DVEE')THEN
+      ELSEIF(VOLEQ(4:7).EQ.'DVEE')THEN
 C
 C     DIRECT VOLUME ESTIMATORS
 C     FIND CORRECT SPECIES
@@ -2351,8 +2318,8 @@ C//////////////////////////////////////////////////////////////////
       CHARACTER*10 VOLEQ
       CHARACTER*2 FORST
       INTEGER SPEC,ERRFLAG,FORNUM
-      CHARACTER*10 TONEQN(23),CHUEQN(23),OTHEREQN(27)
-      INTEGER FIA(23), FIRST, HALF, LAST, DONE,I
+      CHARACTER*10 TONEQN(27),CHUEQN(27),OTHEREQN(27)
+      INTEGER FIA(27), FIRST, HALF, LAST, DONE,I
 C
 C     AK SPECIES LIST
 C     Pacific silver fir  Subalpine fir     Alaska yellow Cedar  Tamarack
@@ -2363,11 +2330,13 @@ C     Alaska birch        Balsam poplar     Quaking aspen        Black cottonwoo
 C     Willow species      Scouler's willow  Other hardwood
 C
 C     LUTZ SPRUCE IS TREATED AS FIA CODE 94 (WHITE SPRUCE)
+C     Added second growth equation for 042,098, 242,263 using species code 2042,2098,2242 and 2263 (2024/10/07)      
       DATA FIA / 011, 019, 042, 071, 094,
      >           094, 095, 098, 108, 242,
      >           263, 264, 299, 350, 351,
      >           375, 376, 741, 746, 747,
-     >           920, 928, 998/
+     >           920, 928, 998,2042,2098,
+     >          2242,2263 /
 C
 C     DEFAULT VOLUME EQUATIONS FOR LOCATION CODES: 703, 1002, 1003, 1005,
 C     8134, 8135, 8112
@@ -2376,7 +2345,8 @@ C     8134, 8135, 8112
      > 'A00DVEW094','A00DVEW094','A00F32W098','A00F32W260','A00F32W242',
      > 'A00F32W260','A00F32W260','A00DVEW094','A32CURW351','A32CURW351',
      > 'A00DVEW375','A00DVEW375','A00DVEW747','A00DVEW375','A00DVEW747',
-     > 'A00DVEW747','A00DVEW747','A00DVEW747'/
+     > 'A00DVEW747','A00DVEW747','A00DVEW747','A02F32W042','A02F32W098',
+     > 'A02F32W242','A02F32W263'/
 
 C     DEFAULT VOLUME EQUATIONS FOR LOCATION CODES: 1004, 713, 720, 7400, 7401,
 C     7402, 7403, 7404, 7405, 7406, 7407, 7408
@@ -2385,7 +2355,8 @@ C     7402, 7403, 7404, 7405, 7406, 7407, 7408
      > 'A00DVEW094','A00DVEW094','A00F32W098','A01DEMW000','A01DEMW000',
      > 'A00F32W260','A01DEMW000','A00DVEW094','A32CURW351','A32CURW351',
      > 'A00DVEW375','A00DVEW375','A00DVEW747','A00DVEW375','A00DVEW747',
-     > 'A00DVEW747','A00DVEW747','A00DVEW747'/
+     > 'A00DVEW747','A00DVEW747','A00DVEW747','A02F32W042','A02F32W098',
+     > 'A02F32W242','A02F32W263'/
 
 C     OTHER VALID EQUATIONS THAT CAN BE USED -- THESE ARE NOT DEFAULT
 C     EQUATION NUMBERS.
@@ -2399,7 +2370,7 @@ C     EQUATION NUMBERS.
 C
 C     SEARCH FOR VALID EQUATION NUMBER IN TONEQN AND CHUEQN
       IF(SPEC.EQ.9999)THEN
-        DO I=1,23
+        DO I=1,27
         IF((VOLEQ.EQ.TONEQN(I)).OR.(VOLEQ.EQ.CHUEQN(I)))THEN
 C
 C     FOUND VALID EQUATION NUMBER
@@ -2423,7 +2394,7 @@ C
       ENDIF
 C
       READ(FORST,'(I2)')FORNUM
-      LAST = 23
+      LAST = 27
       FIRST = 1
       DONE = 0
 C

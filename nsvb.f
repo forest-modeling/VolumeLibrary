@@ -23,10 +23,10 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
      + ERRFLG,FIASPCD,CTYPE)
       IMPLICIT NONE
       CHARACTER*11 VOLEQ
-      CHARACTER*2 FORST,DIST,PROD
+      CHARACTER*2 FORST,DIST,PROD,PROD2
       CHARACTER*1 LIVE,CTYPE
       !CTYPE as I = FIA, F = FVS, C = Cruise, B = when other VOLEQ was used in voinitnvb
-      INTEGER REGN,ERRFLG,DECAYCD,FIASPCD,SFTHRD
+      INTEGER REGN,ERRFLG,DECAYCD,FIASPCD,SFTHRD,ERRFLG2
       REAL DBHOB,HTTOT,MTOPP,MTOPS,HT1PRD,HT2PRD,STUMP,BRKHT,BRKHTD
       REAL CR,CULL
       REAL VOL(15),DRYBIO(15),GRNBIO(15)
@@ -58,7 +58,7 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
       REAL WtotibRed,WtotbkRed,WtotobRed,WbrchRed,AGBcompRed,BrchRem
       REAL Vtotob2,Vsawib2,Vsawob2,Vsawbk2,Vmrchib2,Vmrchob2,Vmrchbk2
       REAL Vtwib2,Vtwob2,Vtwbk2,Vtipib2,Vtipbk2,Rsaw2,Rmrch2
-      REAL DeadCF,SPGRNWF,SPDRYWF, SPREGNWF
+      REAL DeadCF,SPGRNWF,SPDRYWF, SPREGNWF,DeadWF,WtFac2
       CHARACTER*3 SPC
       !Check VOLEQ is valid
       IF(VOLEQ(1:3).NE.'NVB')THEN
@@ -80,6 +80,11 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
               RETURN
           ENDIF
       END DO
+      !Reset the species code for R10 second grow species(2024/10/07)
+      IF(FIASPCD.EQ.2042) FIASPCD = 42
+      IF(FIASPCD.EQ.2098) FIASPCD = 98
+      IF(FIASPCD.EQ.2242) FIASPCD = 242
+      IF(FIASPCD.EQ.2263) FIASPCD = 263
       VOL = 0.0
       DRYBIO = 0.0
       GRNBIO = 0.0
@@ -88,6 +93,7 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
       LOGDIA = 0.0
       BOLHT = 0.0
       ERRFLG = 0
+      ERRFLG2 = 0
       AGBpred = 0
       WoodHarm = 0
       BARKHarm = 0
@@ -150,10 +156,14 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
       IF(SPCD.EQ.204) SPCD = 202
       IF(SPCD.LT.10)THEN
           !FIASPCD is required for Jenkins SPGRP equation
-          ERRFLG = 4
+          ERRFLG = 6
           RETURN
       ENDIF
-      
+      !Added default DECAYCD for Dead tree (2025/06/04)
+      IF(LIVE.EQ.'D'.AND.DECAYCD.EQ.0) DECAYCD = 3
+      !FIA is not using the CR input value for biomass calculation, but NVEL still keep it
+      !IF(LIVE.EQ.'D'.AND.CR.GT.0) CR = 0
+
       CALL NVB_RefSpcData(SPCD,SPGRPCD,WDSG,SFTHRD,CF,ERRFLG,
      & SPGRNWF, SPDRYWF)
       IF(ERRFLG.GT.0.AND.ERRFLG.NE.6) RETURN
@@ -174,19 +184,37 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
               ENDIF
           ENDIF
       ENDIF
+      !First call the mrules to get the region defaults
+      V_EQN = VOLEQ(1:10)
+      CALL MRULES(REGN,FORST,V_EQN,DBHOB,COR,EVOD,OPT,MAXLEN,
+     >   MINLEN,MERCHL,MINLENT,MTOPP,MTOPS,STUMP,TRIM,BTR,DBTBH,MINBFD,
+     >   PROD)
+      IF(MTOPS.GT.MTOPP) MTOPS = MTOPP
+      !If HTTOT is not provided, try to get an estimate from HT1PRD/MTOPP, HT2PRD/MTOPS
+      IF(HTTOT.LE.0)THEN
+          IF(HT2PRD.GT.0.AND.MTOPS.GT.0)THEN
+              CALL NVB_ESTTHT(VOLEQ,DBHOB,HT2PRD,MTOPS,HTTOT,ERRFLG,
+     &         SPGRPCD,WDSG)
+          ELSEIF(HT1PRD.GT.0.AND.MTOPP.GT.0)THEN
+              CALL NVB_ESTTHT(VOLEQ,DBHOB,HT1PRD,MTOPP,HTTOT,ERRFLG,
+     &         SPGRPCD,WDSG)
+          ENDIF
+      ENDIF
+      !If HTTOT still 0, check broken height
       IF(HTTOT.LE.0)THEN
           IF(BRKHT.LE.0.AND.BRKHTD.LE.0)THEN
               ERRFLG = 4
-              RETURN
+              !RETURN
           ELSEIF(BRKHT.LE.0.OR.BRKHTD.LE.0)THEN
               ERRFLG = 9
-              RETURN
+              !RETURN
           ELSEIF(BRKHT.GT.0.AND.BRKHTD.GT.0)THEN
               CALL NVB_ESTTHT(VOLEQ,DBHOB,BRKHT,BRKHTD,HTTOT,ERRFLG,
      &         SPGRPCD,WDSG)
           ENDIF
       ENDIF
-      
+      IF(HTTOT.LE.0) ERRFLG = 4
+      IF(ERRFLG.GT.0) RETURN
       IF(BRKHT.LT.4.5) BRKHT = 0
       IF(BRKHT.GT.0)THEN
           CALL NVB_GetRatioCOEF(VOLEQ,Tbl5Cnt,SPCOEF,JKCOEF,a,b,SPGRPCD)
@@ -223,48 +251,44 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
               RemBrchProp = 0     
           ENDIF
           !IF(SPCD.LT.300)THEN
-          IF(SFTHRD.EQ.0)THEN
-              IF(DECAYCD.eq.1)THEN
-                  DenProp = 0.97
-                  DeadCF = 0.501
-              ELSEIF(DECAYCD.EQ.2)THEN
-                  DenProp = 1
-                  DeadCF = 0.504
-             ELSEIF(DECAYCD.EQ.3)THEN
-                  DenProp = 0.92
-                  DeadCF = 0.506
-             ELSEIF(DECAYCD.EQ.4)THEN
-                  DenProp = 0.55
-                  DeadCF = 0.52
-             ELSEIF(DECAYCD.EQ.5)THEN
-                  DenProp = 0.55
-                  DeadCF = 0.527
-             ENDIF
-          ELSE
-              IF(DECAYCD.eq.1)THEN
-                  DenProp = 0.99
-                  DeadCF = 0.47
-              ELSEIF(DECAYCD.EQ.2)THEN
-                  DenProp = 0.8
-                  DeadCF = 0.473
-             ELSEIF(DECAYCD.EQ.3)THEN
-                  DenProp = 0.54
-                  DeadCF = 0.481
-             ELSEIF(DECAYCD.EQ.4)THEN
-                  DenProp = 0.43
-                  DeadCF = 0.48
-             ELSEIF(DECAYCD.EQ.5)THEN
-                  DenProp = 0.43
-                  DeadCF = 0.472     
-             ENDIF
-          ENDIF
+          !Move the following code to DecayDenProp subroutine (2025/05/08)
+          !IF(SFTHRD.EQ.0)THEN
+          !    IF(DECAYCD.eq.1)THEN
+          !        DenProp = 0.97
+          !        DeadCF = 0.501
+          !    ELSEIF(DECAYCD.EQ.2)THEN
+          !        DenProp = 1
+          !        DeadCF = 0.504
+          !   ELSEIF(DECAYCD.EQ.3)THEN
+          !        DenProp = 0.92
+          !        DeadCF = 0.506
+          !   ELSEIF(DECAYCD.EQ.4)THEN
+          !        DenProp = 0.55
+          !        DeadCF = 0.52
+          !   ELSEIF(DECAYCD.EQ.5)THEN
+          !        DenProp = 0.55
+          !        DeadCF = 0.527
+          !   ENDIF
+          !ELSE
+          !    IF(DECAYCD.eq.1)THEN
+          !        DenProp = 0.99
+          !        DeadCF = 0.47
+          !    ELSEIF(DECAYCD.EQ.2)THEN
+          !        DenProp = 0.8
+          !        DeadCF = 0.473
+          !   ELSEIF(DECAYCD.EQ.3)THEN
+          !        DenProp = 0.54
+          !        DeadCF = 0.481
+          !   ELSEIF(DECAYCD.EQ.4)THEN
+          !        DenProp = 0.43
+          !        DeadCF = 0.48
+          !   ELSEIF(DECAYCD.EQ.5)THEN
+          !        DenProp = 0.43
+          !        DeadCF = 0.472     
+          !   ENDIF
+          !ENDIF
+          CALL DecayDenProp(SFTHRD,DECAYCD,DenProp,DeadCF)
       ENDIF
-      !First call the mrules to get the region defaults
-      V_EQN = VOLEQ(1:10)
-      CALL MRULES(REGN,FORST,V_EQN,DBHOB,COR,EVOD,OPT,MAXLEN,
-     >   MINLEN,MERCHL,MINLENT,MTOPP,MTOPS,STUMP,TRIM,BTR,DBTBH,MINBFD,
-     >   PROD)
-      IF(MTOPS.GT.MTOPP) MTOPS = MTOPP
       ! (1) calculate total stem wood volume inside bark
       CALL NVB_Vib(VOLEQ,DBHOB,HTTOT,Vtotib,ERRFLG,SPGRPCD,WDSG)
       IF(ERRFLG.GT.0) RETURN
@@ -295,7 +319,7 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
       !FIA calculate merch volume different than cruise and FVS
       !FIA uses the very simple way, i.e. the volume from stump to merch top (DOB)
       !Timber Cruise and FVS calculates it as sum of log volumes with trim removed between logs
-      IF(HT1PRD.LE.0)THEN
+      IF(HT1PRD.LE.0.AND.MTOPP.LT.DBHOB)THEN
           IF(CTYPE.EQ.'I'.OR.CTYPE.EQ.'i')THEN
               CALL NVB_HT2TOPDob(VOLEQ,DBHOB,HTTOT,Vtotob2,MTOPP,HT1PRD,
      &        ERRFLG,SPGRPCD,WDSG)
@@ -308,7 +332,7 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
       ENDIF
       IF(HT1PRD.LT.STUMP) HT1PRD = STUMP
       !Calculate sawtimber volume for FIA
-      !CTYPE = B is set in noinitnvb when VOLEQ is not NSVB EQ
+      !CTYPE = B is set in volinitnvb when VOLEQ is not NSVB EQ
       IF(CTYPE.EQ.'I'.OR.CTYPE.EQ.'B')THEN
           CALL CalcRatio(HTTOT,HT1PRD,RatioEQ,a,b,Rsaw2)
           Vsawib2 = Vtotib*Rsaw2 - Vstumpib
@@ -332,7 +356,16 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
       DIBL = LOGDIA(1,1)
       HT2 = STUMP
       IF(LMERCH.GE.MERCHL)THEN
+          !Added max number of logs (20) check (20250626)
+          IF((LMERCH/(MAXLEN+TRIM)).GT.20)THEN
+             ERRFLG2 = 12
+             !RETURN
+          ENDIF
           CALL NUMLOG(OPT,EVOD,LMERCH,MAXLEN,MINLEN,TRIM,NUMSEG)  
+          IF(NUMSEG.GT.20)THEN
+              ERRFLG=12
+              RETURN
+          ENDIF
           CALL SEGMNT(OPT,EVOD,LMERCH,MAXLEN,MINLEN,TRIM,NUMSEG,LOGLEN)
           CALL NVB_CalcLOGVOL(LOGST,NUMSEG,DIBL,HT2,Vtotib,TRIM,HTTOT,
      +  LOGLEN,LOGDIA,LOGVOL,BOLHT,VOL,COR,a,b)
@@ -349,7 +382,8 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
       IF(HT1PRD.LE.0) HT1PRD = HTsaw
       ! (6) calculate merch, topwood(tw) and tip volumes
       NLOGS = 0
-      IF(HT2PRD.LE.0)THEN
+      !Added check MTOPS < DBHOB (2025/10/20)
+      IF(HT2PRD.LE.0.AND.MTOPS.LT.DBHOB)THEN
           IF(CTYPE.EQ.'I'.OR.CTYPE.EQ.'i')THEN
               CALL NVB_HT2TOPDob(VOLEQ,DBHOB,HTTOT,Vtotob2,MTOPS,HT2PRD,
      &        ERRFLG,SPGRPCD,WDSG)
@@ -374,17 +408,29 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
       LMERCH = HT2PRD - HTsaw
       IF(LMERCH.GE.MINLENT)THEN
           NUMSEG = 0
+          !Added max number of logs (20) check (20250626)
+          IF((LMERCH/(MAXLEN+TRIM)).GT.20)THEN
+             ERRFLG2 = 12
+             !RETURN
+          ENDIF
           CALL NUMLOG(OPT,EVOD,LMERCH,MAXLEN,MINLEN,TRIM,NUMSEG)  
           CALL SEGMNT(OPT,EVOD,LMERCH,MAXLEN,MINLENT,TRIM,NUMSEG,
      &     LOGLENT)
           NOLOGS = NUMSEG
+          IF((LOGST+NUMSEG).GT.20) THEN
+              ERRFLG2 = 12
+              !RETURN
+          ENDIF
+          IF((LOGST+NUMSEG).LE.20) THEN
           !Add secondary log length to LOGLEN
-          DO 600 I = 1, NUMSEG
-            LOGLEN(I+LOGST) = LOGLENT(I)
- 600      CONTINUE
-          CALL NVB_CalcLOGVOL(LOGST,NUMSEG,DIBL,HT2,Vtotib,TRIM,HTTOT,
-     +    LOGLEN,LOGDIA,LOGVOL,BOLHT,VOL,COR,a,b)
-          LOGST = LOGST + NUMSEG
+            DO 600 I = 1, NUMSEG
+              LOGLEN(I+LOGST) = LOGLENT(I)
+ 600        CONTINUE
+          
+            CALL NVB_CalcLOGVOL(LOGST,NUMSEG,DIBL,HT2,Vtotib,TRIM,HTTOT,
+     +      LOGLEN,LOGDIA,LOGVOL,BOLHT,VOL,COR,a,b)
+            LOGST = LOGST + NUMSEG
+          ENDIF
           HTmrch = HT2
           CALL CalcRatio(HTTOT,HTmrch,RatioEQ,a,b,Rmrch)
           Vmrchib = Vtotib * Rmrch - Vstumpib
@@ -459,10 +505,11 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
       BrchHarm = WbrchRed + BrchAdd
       
       ! (11) calculate foliage weight for LIVE only
-      IF(LIVE.EQ.'L')THEN
-          CALL NVB_Wfo(VOLEQ,DBHOB,HTTOT,Wfol,ERRFLG,SPGRPCD,WDSG)
-          WfolRem = Wfol*BrchRem
-      ENDIF
+      !IF(LIVE.EQ.'L')THEN
+      CALL NVB_Wfo(VOLEQ,DBHOB,HTTOT,Wfol,ERRFLG,SPGRPCD,WDSG)
+      WfolRem = Wfol*BrchRem
+      !ENDIF
+      IF(LIVE.EQ.'D') WfolRem = 0
       ! (12) Adjust wood and bark density
       WDSGadj = WoodHarm/VtotibSound
       BKSGadj = BarkHarm/VtotbkSound
@@ -499,20 +546,45 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
       CF = ANINT(CF*1000)/1000
       DRYBIO(15) = DRYBIO(1)*CF
       ! (15) get the regional green weight factor to calculate green biomass (GRNBIO)
-      SPREGNWF = 0
-      CALL GetRegnWF(REGN,FORST,SPCD,SPREGNWF)
-      IF(SPREGNWF.GT.0) THEN
-          GRNWF = SPREGNWF
-      ELSE
-          GRNWF = SPGRNWF
-      ENDIF
+      !SPREGNWF = 0
+      !CALL GetRegnWF(REGN,FORST,SPCD,SPREGNWF)
+      !IF(SPREGNWF.GT.0) THEN
+      !    GRNWF = SPREGNWF
+      !ELSE
+      !    GRNWF = SPGRNWF
+      !ENDIF
+      GRNWF = SPGRNWF
+      CALL GetRegnWF(REGN,FORST,SPCD,GRNWF,DeadWF,PROD)
       DRYWF = (WoodHarm+BarkHarm)/Vtotib
-      IF(DRYWF.EQ.0) THEN
+      IF(DRYWF.LT.10) THEN
           DRYWF = SPDRYWF
       ENDIF
-      MC = (GRNWF-DRYWF)/DRYWF
+      !MC = (GRNWF-DRYWF)/DRYWF
+      IF(LIVE.EQ.'L')THEN
+          MC = (GRNWF-DRYWF)/DRYWF
+      ELSE
+          MC = (DeadWF-DRYWF)/DRYWF
+      ENDIF
       GRNBIO = DRYBIO*(1+MC)
-      
+      !20240626 Add calculate cord volume
+      VOL(6) = VOL(4)/90
+      IF(REGN.EQ.3.OR.REGN.EQ.8.OR.REGN.EQ.9) VOL(6)=VOL(4)/79
+      VOL(6) = ANINT(VOL(6)*1000)/1000
+      !Set the log weight to LOGVOL for CTYPE ='C' (Cruise only)
+      IF(CTYPE.EQ.'C')THEN
+          WtFac2 = GRNWF
+          IF(NOLOGS.GT.0)THEN
+              PROD2 = '20'
+              CALL GetRegnWF(REGN,FORST,SPCD,WtFac2,DeadWF,PROD2)
+          ENDIF
+          IF(LIVE.EQ.'L')THEN
+              CALL CruiseLogWt(LOGVOL,NOLOGP,NOLOGS,GRNWF,WtFac2)
+          ELSE
+              CALL CruiseLogWt(LOGVOL,NOLOGP,NOLOGS,DeadWF,DeadWF)
+          ENDIF
+      ENDIF
+      !Set errflag for tree with more than 20 logs (2025/06/27)
+      IF(ERRFLG2.GT.0.AND.ERRFLG.EQ.0) ERRFLG = ERRFLG2
       RETURN
       END
 C----------------------------------------------------------------------
@@ -569,6 +641,8 @@ C Stem height to a top diameter outside bark
           CALL NVB_Vob(VOLEQ,DBHOB,HTTOT,Vob,ERRFLG,SPGRPCD,WDSG)
       ENDIF
       CALL NVB_CalcHT2TOPD(Vob,a,b,HTTOT,TOPD,HT2)
+      !Added HT2 floor to 4.5 for merch height (2025/05/02)
+      IF(HT2.LT.5.AND.TOPD.LT.DBHOB) HT2 = 5
       RETURN
       END
 !----------------------------------------------------------------------
@@ -819,7 +893,7 @@ C     FIND THE SPECIES GROUP CODE FROM THE ARRAY
       INTEGER equation
       REAL H,h1,a,b,R
       R=0
-      IF(equation.EQ.6.AND.(h1.GT.0.AND.h1.LT.H))THEN
+      IF(equation.EQ.6.AND.(h1.GT.0.AND.h1.LE.H))THEN
           R = (1-(1-h1/H)**a)**b
       ENDIF
       RETURN
@@ -905,12 +979,17 @@ C For TOPD inside bark, input TCUFT inside bark and inside bark coef (a,b)
       hi = HTTOT
       diff = 1.0
       loopcnt = 0
-      DO WHILE (ABS(diff).GT.0.01)
+      DO WHILE (ABS(diff).GT.0.001)
           mid = (low+hi)/2  
+          !Stop calculation when mid < stump ht (2025/10/21)
+          IF(mid.LT.0.5)THEN
+              mid = 0
+              EXIT
+          ENDIF
           X = mid/HTTOT  
           diff = TOPD - ((TCUFT/0.005454154/HTTOT*a*b*
      +    (1-X)**(a-1)*(1-(1-X)**a)**(b-1)))**0.5
-          IF(ABS(diff).LT.0.05) THEN
+          IF(ABS(diff).LT.0.001) THEN
               EXIT
           ENDIF
           IF(diff.LT.0.0)THEN
@@ -921,7 +1000,7 @@ C For TOPD inside bark, input TCUFT inside bark and inside bark coef (a,b)
           loopcnt = loopcnt +1
           IF(loopcnt.GT.1000) EXIT
       ENDDO
-      HT2 = mid      
+      HT2 = mid
       RETURN
       END  
 C----------------------------------------------------------------------
@@ -1102,8 +1181,10 @@ C Calculate LOGDIA, LOGVOL, BOLHT and VOL
       BrchRem = 1
       IF(CR.GT.0) THEN 
           IF(CR.GE.1) CR = CR/100
-          CrownLen = BRKHT*CR
-          BrchRem = CrownLen/(CrownLen+HTTOT-BRKHT)
+          !CrownLen = BRKHT*CR
+          !BrchRem = CrownLen/(CrownLen+HTTOT-BRKHT)
+          CRh = (HTTOT-BRKHT*(1-CR))/HTTOT
+          BrchRem = (BRKHT-HTTOT*(1-CRh))/(HTTOT*CRh)
       ELSE
           CALL NVB_AvgCR(DIVISION,SPCD,CRh)
           IF(CRh.GE.1) CRh = CRh/100
@@ -1206,32 +1287,44 @@ C Calculate LOGDIA, LOGVOL, BOLHT and VOL
       V_SPCD = SPCD
       CALL NVB_EcoProv(REGN,FORST,DIST,iPROV)
       iPROV = (iPROV/10)*10
+      CALL NVB_RefSpcData(SPCD,SPGRPCD,WDSG,SFTHRD,CF,ERRFLG,
+     &      SPGRNWF,SPDRYWF)
+      IF(ERRFLG.GT.0) THEN
+          ERRFLG = 6
+          RETURN
+      ENDIF
+      IF(SPGRPCD.EQ.0.OR.SPGRPCD.EQ.10)THEN
+          ERRFLG = 1
+          RETURN
+      ENDIF
+
       !Check if the SPCD has a equation for the DIVISION
       !IF(SPCD.GT.999) SPCD = 999
-      DONE = 0
-      SPCDFIND = 0
-      DO I = 1, Tbl1Cnt
-          IF(SPCOEF(I,1).EQ.SPCD)THEN
-              SPCDFIND = 1
-              IF(SPCOEF(I,2).EQ.iPROV.OR.SPCOEF(I,2).EQ.0)THEN
-                  DONE = I
-                  IF(SPCOEF(I,2).EQ.0) iPROV = 0
-                  EXIT
-              ENDIF
-          ENDIF
-      END DO
+      !DONE = 0
+      !SPCDFIND = 0
+      !DO I = 1, Tbl1Cnt
+      !    IF(SPCOEF(I,1).EQ.SPCD)THEN
+      !        SPCDFIND = 1
+      !        IF(SPCOEF(I,2).EQ.iPROV.OR.SPCOEF(I,2).EQ.0)THEN
+      !            DONE = I
+      !            IF(SPCOEF(I,2).EQ.0) iPROV = 0
+      !            EXIT
+      !        ENDIF
+      !    ENDIF
+      !END DO
       !When no equation for the SPCD, set iPROV to 0 and check Jenkin's species group 
-      IF(DONE.EQ.0)THEN
-          iPROV = 0
-          CALL NVB_RefSpcData(SPCD,SPGRPCD,WDSG,SFTHRD,CF,ERRFLG,
-     &      SPGRNWF,SPDRYWF)
-          IF(ERRFLG.GT.0) RETURN
-          IF(SPGRPCD.EQ.0.OR.SPGRPCD.EQ.10)THEN
-              ERRFLG = 1
-              RETURN
-          ENDIF
-          V_SPCD = SPGRPCD
-      ENDIF
+      !Not set default equation for Jenkins coef. It causes error for biomass calc for some species.
+!      IF(DONE.EQ.0)THEN
+!          iPROV = 0
+!          CALL NVB_RefSpcData(SPCD,SPGRPCD,WDSG,SFTHRD,CF,ERRFLG,
+!     &      SPGRNWF,SPDRYWF)
+!          IF(ERRFLG.GT.0) RETURN
+!          IF(SPGRPCD.EQ.0.OR.SPGRPCD.EQ.10)THEN
+!              ERRFLG = 1
+!              RETURN
+!          ENDIF
+!          V_SPCD = SPGRPCD
+!      ENDIF
       WRITE (PROV, '(I4)') iPROV
       IF(iPROV.EQ.0) PROV = '0000'
       IF(iPROV.GT.999)THEN
@@ -1313,15 +1406,19 @@ C     FIND THE SPECIES GROUP CODE FROM THE ARRAY
       END
 !----------------------------------------------------------------------
       !get species regional weight factor
-      SUBROUTINE GetRegnWF(REGN,FORST,SPCD,WtFac)
+      SUBROUTINE GetRegnWF(REGN,FORST,SPCD,WtFac,DeadWF,PROD)
       IMPLICIT NONE
       INTEGER REGN, SPCD,DONE,I,IFORST
-      CHARACTER*2 FORST
-      REAL WtFac
+      CHARACTER*2 FORST,PROD
+      REAL WtFac,DeadWF,WtFac2
       INCLUDE 'regndftdata.inc'
-      
+      INTEGER SPGRPCD,ERRFLG,SFTHRD
+      REAL WDSG, CF, SPGRNWF, SPDRYWF
       DONE = 0
       I = 0
+      WtFac = 0
+      WtFac2 = 0
+      DeadWF = 0
       READ(FORST,'(i2)') IFORST
       IF(REGN.EQ.0) DONE = -1  
       DO WHILE (DONE.EQ.0)
@@ -1333,10 +1430,82 @@ C     FIND THE SPECIES GROUP CODE FROM THE ARRAY
      &      SPREGNDFTWF(I,3).EQ.SPCD)) THEN
              DONE = I
              WtFac = SPREGNDFTWF(I,4)
+             WtFac2 = SPREGNDFTWF(I,5)
+             DeadWF = SPREGNDFTWF(I,7)
            ENDIF
          ENDIF 
          IF(I.GE.TOTDFT.AND.DONE.EQ.0) DONE = -1
       END DO
+      IF(WtFac2.EQ.0) WtFac2 = WtFac
+      !For Non-saw product using the non-saw/secondary weightfactor
+      !IF(REGN.EQ.1.AND.PROD.NE.'01') WtFac = WtFac2
+      !IF(REGN.EQ.5.AND.PROD.EQ.'20') WtFac = WtFac2
+      !YW 2025/02/19
+      IF(PROD.NE.'01') WtFac = WtFac2
+      !Species does not have a regional default, get green weight from ref_species
+      IF(DONE.EQ.-1.AND.WtFac.LT.1)THEN
+          CALL NVB_RefSpcData(SPCD,SPGRPCD,WDSG,SFTHRD,CF,ERRFLG,
+     & SPGRNWF,SPDRYWF)
+          WtFac = SPGRNWF
+      ENDIF
+      !Dead weight factor is not defined by region, using regional average
+      IF(DeadWF.LT.1)THEN
+          IF(REGN.EQ.1)THEN
+              DeadWF = WtFac*0.6749
+          ELSEIF(REGN.EQ.2)THEN
+              DeadWF = WtFac*0.6381
+          ELSEIF(REGN.EQ.4)THEN
+              DeadWF = WtFac*0.6113
+          ELSEIF(REGN.EQ.5)THEN
+              DeadWF = WtFac*0.8254
+          ELSEIF(REGN.EQ.7)THEN
+              DeadWF = WtFac*0.7951
+          ELSE
+              DeadWF = WtFac*0.7036
+          ENDIF
+      ENDIF
       RETURN
       END
+!----------------------------------------------------------------------
+      SUBROUTINE DecayDenProp(SFTHRD,DECAYCD,DenProp,DeadCF)
+      IMPLICIT NONE
+      INTEGER SFTHRD,DECAYCD
+      REAL DenProp,DeadCF
       
+          IF(SFTHRD.EQ.0)THEN
+              IF(DECAYCD.eq.1)THEN
+                  DenProp = 0.97
+                  DeadCF = 0.501
+              ELSEIF(DECAYCD.EQ.2)THEN
+                  DenProp = 1
+                  DeadCF = 0.504
+             ELSEIF(DECAYCD.EQ.3)THEN
+                  DenProp = 0.92
+                  DeadCF = 0.506
+             ELSEIF(DECAYCD.EQ.4)THEN
+                  DenProp = 0.55
+                  DeadCF = 0.52
+             ELSEIF(DECAYCD.EQ.5)THEN
+                  DenProp = 0.55
+                  DeadCF = 0.527
+             ENDIF
+          ELSE
+              IF(DECAYCD.eq.1)THEN
+                  DenProp = 0.99
+                  DeadCF = 0.47
+              ELSEIF(DECAYCD.EQ.2)THEN
+                  DenProp = 0.8
+                  DeadCF = 0.473
+             ELSEIF(DECAYCD.EQ.3)THEN
+                  DenProp = 0.54
+                  DeadCF = 0.481
+             ELSEIF(DECAYCD.EQ.4)THEN
+                  DenProp = 0.43
+                  DeadCF = 0.48
+             ELSEIF(DECAYCD.EQ.5)THEN
+                  DenProp = 0.43
+                  DeadCF = 0.472     
+             ENDIF
+          ENDIF
+      RETURN
+      END

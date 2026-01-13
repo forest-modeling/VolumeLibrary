@@ -39,9 +39,10 @@ C YW 2022/10/25 Fix the change made on 2022/05/03 to check VOL(1) before reset V
 C YW 2022/11/23 Added the call TOP6LEN R2 Black Hills equation 223DVEW122
 C YW 2023/06/05 Modified VOLINITNVB for resetting CTYPE
 ! YW 2023/08/18 Check STUMP>0 before calc stump vol
+! YW 2025/02/19 Set log weight to LOGVOL for CTYPE = 'C' (Cruise only)
 !**********************************************************************
       CHARACTER*1  HTTYPE,LIVE,CTYPE,VOLEQREGN
-      CHARACTER*2  FORST,PROD
+      CHARACTER*2  FORST,PROD,PROD2
       character*4  CONSPEC
       CHARACTER*10 VOLEQ,FIAVTYPE,GEOSUB,NVELEQ
       CHARACTER*3  MDL,SPECIES
@@ -76,12 +77,12 @@ C YW 2023/06/05 Modified VOLINITNVB for resetting CTYPE
 C  variables for stump dia and vol
       INTEGER SPN
       REAL STUMPDIB, STUMPDOB, VOLIB, VOLOB    
-      REAL DIB,DOB,HTUP,MHT,FIAVOL,BFMIND
+      REAL DIB,DOB,HTUP,MHT,FIAVOL,BFMIND,LMERCH
       
 c  test biomass calc variable
-      REAL WF(3), BMS(8)
+      REAL WF(3), BMS(8), GRNWF,DeadWF,WtFac2
       INTEGER SPCD, FOREST 
-      
+
 C Test fiaeq2nveleq 2019/08/21
 !      CHARACTER*12 FIABEQ,NVELBEQ,GEOSUB2
 !      INTEGER BEQNUM,STEMS
@@ -323,7 +324,10 @@ C ADDED ON 07/30/2014 ROUND LOGS BASED ON JEFF PENMAN LOG RULES
 
             ENDIF
             HTTYPE = 'L'
-            IF(THT1.EQ.0) RETURN
+            IF(THT1.EQ.0) THEN
+                ERRFLAG = 4
+                RETURN
+            ENDIF    
           ENDIF
 
           NOLOGP=0.0
@@ -440,9 +444,14 @@ C AND ALL OTHER RD (EXCEPT ANDREW PICKENS(02)) OF FRANCIS MARION & SUTTER(12)
 !***********************
 !    REGION 10 MODEL  * 
 !***********************
+         IF(HTTOT.LE.0.AND.HT1PRD.GT.0)THEN
+             CALL R10HTS(VOLEQ,HTTOT,HT1PRD,DBHOB,HTTYPE,STUMP,MTOPP,
+     >          LMERCH)
+         ENDIF
          IF ((VOLEQ(1:3).EQ.'A01'.OR.VOLEQ(1:3).EQ.'A02' .or.
      &        VOLEQ(1:3).EQ.'a01'.OR.VOLEQ(1:3).EQ.'a02' ) .or.
-     &     ((HTTYPE.EQ.'F'.AND.HTTOT.LE.40) .OR. DBHOB.LT.9.0)) THEN
+     &     (((HTTYPE.EQ.'F'.AND.HTTOT.LE.40) .OR. DBHOB.LT.9.0) .AND.
+     &      REGN.EQ.10)) THEN
       
             CALL R10VOL(VOLEQ,MTOPP,MTOPS,HTTOT,HT1PRD,DBHOB,
      &          HTTYPE,VOL,NOLOGP,NOLOGS,TLOGS,LOGLEN,LOGDIA,LOGVOL,
@@ -534,6 +543,7 @@ C AND ALL OTHER RD (EXCEPT ANDREW PICKENS(02)) OF FRANCIS MARION & SUTTER(12)
             LOGLEN(I) = 0.0
  19      CONTINUE 
       ENDIF
+      IF(VOL(7).LT.0.0) VOL(7) = 0.0
 C  calc Tip volume and save to VOL(15)
       IF(ERRFLAG.GT.0) RETURN
       IF(VOL(14).LE.0.0.AND.STUMP.GT.0) THEN  !start stump vol calc
@@ -605,6 +615,27 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
           VOL(4) = VOL(1)
         ENDIF
       ENDIF
+      !Added VOL(1) > 0 check (20240426)
+      IF(VOL(1).LT.0) VOL(1) = 0
+      !Set the log weight to LOGVOL for CTYPE ='C' (Cruise only) 20250219
+      IF(CTYPE.EQ.'C')THEN
+          SPCD = 0
+          IF(VERIFY(CONSPEC,"0123456789 ").EQ.0) THEN
+              READ(CONSPEC,'(I3)') SPCD
+          ENDIF
+          IF(SPCD.EQ.0) READ(VOLEQ(8:10),'(I3)') SPCD
+          CALL GetRegnWF(REGN,FORST,SPCD,GRNWF,DeadWF,PROD)
+          WtFac2 = GRNWF
+          IF(NOLOGS.GT.0)THEN
+              PROD2 = '20'
+              CALL GetRegnWF(REGN,FORST,SPCD,WtFac2,DeadWF,PROD2)
+          ENDIF
+          IF(LIVE.EQ.'L')THEN
+              CALL CruiseLogWt(LOGVOL,NOLOGP,NOLOGS,GRNWF,WtFac2)
+          ELSE
+              CALL CruiseLogWt(LOGVOL,NOLOGP,NOLOGS,DeadWF,DeadWF)
+          ENDIF
+      ENDIF
       IF (DEBUG%MODEL) THEN
         WRITE  (LUDBG, 100)'FORST VOLEQ     MTOPP HTTOT HT1PRD DBHOB 
      &   HTTYPE FCLASS'
@@ -654,7 +685,7 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
      +    VOL,LOGVOL,LOGDIA,LOGLEN,BOLHT,TLOGS,NOLOGP,NOLOGS,CUTFLG,
      +    BFPFLG,CUPFLG,CDPFLG,SPFLG,CONSPEC,PROD,HTTFLL,LIVE,
      +    BA,SI,CTYPE,ERRFLAG,IDIST,BRKHT,BRKHTD,FIASPCD,DRYBIO,
-     +    GRNBIO,MRULEFLG,MERRULES)
+     +    GRNBIO,MRULEFLG,MERRULES,CULLMSTOP)
       USE CHARMOD
       USE MRULES_MOD
       USE VOLINPUT_MOD
@@ -663,19 +694,25 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
       INTEGER CUTFLG,BFPFLG,CUPFLG,CDPFLG,SPFLG,ERRFLAG,HTLOG,TLOGS
       CHARACTER*11 VOLEQ,NVBEQN
       CHARACTER*10 V_EQN
-      CHARACTER*2 FORST,PROD,DIST
+      CHARACTER*2 FORST,PROD,DIST,PROD2
       CHARACTER*1 LIVE,CTYPE,HTTYPE
       CHARACTER*4 CONSPEC
       REAL MTOPP,MTOPS,STUMP,DBHOB,DRCOB,HTTOT,HT1PRD,HT2PRD
       REAL UPSHT1,UPSHT2,UPSD1,UPSD2,AVGZ1,AVGZ2,DBTBH,BTR,NOLOGP,NOLOGS
       REAL VOL(15),LOGVOL(7,20),LOGDIA(21,3),LOGLEN(20),BOLHT(21)
       REAL NVBVOL(15),NVBLOGVOL(7,20),NVBLOGDIA(21,3),NVBLOGLEN(20)
-      REAL NVBBOLHT(21),CR,CULL
-      INTEGER FIASPCD,MRULEFLG,DECAYCD,ERRFLAG2,I,J
-      REAL BRKHT,BRKHTD,DRYBIO(15),GRNBIO(15),Vfactor
+      REAL NVBBOLHT(21),CR,CULL,NVBNOLOGP,NVBNOLOGS
+      INTEGER FIASPCD,MRULEFLG,DECAYCD,ERRFLAG2,I,J,NVBTLOGS
+      REAL BRKHT,BRKHTD,DRYBIO(15),GRNBIO(15),Vfactor,Rwood
       CHARACTER*3 SPCD
       TYPE(MERCHRULES)::MERRULES
-      
+      INTEGER SPGRPCD,SFTHRD,STEMS,EcoProv
+      REAL WDSG, CF, SPGRNWF, SPDRYWF, MC,SPREGNWF,DeadWF,BIOMS(8)
+      REAL NVBHT1PRD,NVBHT2PRD, DecayProp,CV15,CULLMSTOP,FOLIAGE,BrchRem
+      REAL WtPrim,WtPrimWd,WtPrimBk,WtTW,WtTWwd,WtTWbk,WtTip,WtMstemNVB
+      REAL WtTipWd,WtTipBk,WTStem,WtStemWd,WtStemBk,WF,WF2,WtMerchStem
+      REAL Rprim,WtMstmNVBdry,WtTipDiff,WtTipDiffDry,DenProp,DeadCF
+
       I3 = 3
       I7 = 7
       I15 = 15
@@ -692,6 +729,11 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
       TLOGS = 0
       NOLOGP = 0
       NOLOGS = 0
+      NVBTLOGS = 0
+      NVBNOLOGP = 0
+      NVBNOLOGS = 0
+      NVBHT1PRD = HT1PRD
+      NVBHT2PRD = HT2PRD
       Vfactor = 1
       ERRFLAG2 = 0
       IF(IDIST.EQ.0) IDIST = 1
@@ -701,6 +743,8 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
 	    FORST(1:1) = '0'
         IF(FORST(2:2) .LT. '0') FORST(2:2) = '0'
       ENDIF
+      !Check LIVE input to be L or D
+      IF(LIVE.NE.'D') LIVE = 'L'
       !MRULEFLG = 1 indicates using modified merch rules for log segmentation
       IF(MRULEFLG.GT.0)THEN
          MRULEMOD = 'Y'
@@ -719,6 +763,42 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
           NEWDBTBH = MERRULES%DBTBH
           NEWMINBFD = MERRULES%MINBFD 
       ENDIF
+      !Reset the species code for R10 second grow species(2024/10/07)
+      IF(FIASPCD.EQ.2042) FIASPCD = 42
+      IF(FIASPCD.EQ.2098) FIASPCD = 98
+      IF(FIASPCD.EQ.2242) FIASPCD = 242
+      IF(FIASPCD.EQ.2263) FIASPCD = 263
+      IF(FIASPCD.EQ.204) FIASPCD = 202
+      !Calculate biomass for trees with only DBH (no HT) using Jenkins (2021/11/01)
+      IF((DBHOB.GE.0.1.OR.DRCOB.GE.0.1).AND.
+     + (HTTOT.LT.1.AND.HT1PRD.LT.1.AND.HT2PRD.LT.1.AND.
+     + UPSHT1.LT.1.AND.UPSHT2.LT.1.).AND.CTYPE.EQ.'B')THEN
+          IF(DRCOB.GE.1.AND.DBHOB.LT.1) DBHOB = DRCOB
+          BIOMS = 0
+          CALL JENKINS(FIASPCD,DBHOB,BIOMS)
+          !Set the BIOMS component to variable DRYBIO
+          DRYBIO(1) = BIOMS(1) - BIOMS(4)
+          DRYBIO(6) = BIOMS(2)
+          DRYBIO(7) = BIOMS(3)
+          DRYBIO(12) = BIOMS(6)
+          DRYBIO(13) = BIOMS(4)
+          DRYBIO(14) = BIOMS(7)
+          IF(LIVE.EQ.'D') DRYBIO(13) = 0
+          !Get weight factor to calculate green weight, also the carbon fraction
+          CALL NVB_RefSpcData(FIASPCD,SPGRPCD,WDSG,SFTHRD,CF,
+     &        ERRFLAG,SPGRNWF,SPDRYWF)
+          DRYBIO(15) = DRYBIO(1)*CF
+          CALL GetRegnWF(REGN,FORST,FIASPCD,SPGRNWF,DeadWF,PROD)
+          IF(LIVE.EQ.'L')THEN
+              MC = (SPGRNWF-SPDRYWF)/SPDRYWF
+          ELSE
+              MC = (DeadWF-SPDRYWF)/SPDRYWF
+          ENDIF
+          GRNBIO = DRYBIO*(1+MC)
+          RETURN
+      ENDIF    
+      !End Jenkins biomass calculation for trees with DBH only
+      
       IF(VOLEQ(1:3).EQ.'NVB')THEN
           CALL NVBC(REGN,FORST,DIST,VOLEQ,DBHOB,HTTOT,MTOPP,MTOPS,
      + HT1PRD,HT2PRD,STUMP,PROD,BRKHT,BRKHTD,LIVE,CR,CULL,DECAYCD,
@@ -727,7 +807,8 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
       ELSE
           V_EQN = VOLEQ(1:10)
           !When using FIA equation number like CU000001 or BD000001, the FIASPCD is passed in from CONSPEC variable
-          IF(VOLEQ(1:2).EQ.'CU'.OR.VOLEQ(1:2).EQ.'BD') THEN
+          !IF(VOLEQ(1:2).EQ.'CU'.OR.VOLEQ(1:2).EQ.'BD') THEN
+          IF(FIASPCD.GT.9)THEN
               IF(FIASPCD.GT.999)THEN
                   WRITE(CONSPEC, '(I4)') FIASPCD
               ELSEIF(FIASPCD.GT.99)THEN
@@ -736,17 +817,84 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
                   WRITE(CONSPEC, '(I2)') FIASPCD
               ENDIF
           ENDIF
-          !Set CTYPE to B to make the calc same as FIA except the MTOPP and MTOPS
-          !IF(CTYPE.NE.'I') CTYPE = 'B'
           CALL VOLINIT(REGN,FORST,V_EQN,MTOPP,MTOPS,STUMP,DBHOB,
      +    DRCOB,HTTYPE,HTTOT,HTLOG,HT1PRD,HT2PRD,UPSHT1,UPSHT2,UPSD1,
      +    UPSD2,HTREF,AVGZ1,AVGZ2,FCLASS,DBTBH,BTR,I3,I7,I15,I20,I21,
      +    VOL,LOGVOL,LOGDIA,LOGLEN,BOLHT,TLOGS,NOLOGP,NOLOGS,CUTFLG,
      +    BFPFLG,CUPFLG,CDPFLG,SPFLG,CONSPEC,PROD,HTTFLL,LIVE,
      +    BA,SI,CTYPE,ERRFLAG,IDIST)
-          IF(FIASPCD.EQ.0) READ (V_EQN(8:10),'(I3)') FIASPCD
-          CALL NVB_DefaultEq(REGN,FORST,DIST,FIASPCD,NVBEQN,ERRFLAG)
           IF(ERRFLAG.GT.0) RETURN
+          IF(FIASPCD.EQ.0) READ (V_EQN(8:10),'(I3)') FIASPCD
+          IF(FIASPCD.EQ.204) FIASPCD = 202
+          CALL NVB_DefaultEq(REGN,FORST,DIST,FIASPCD,NVBEQN,ERRFLAG)
+          IF(ERRFLAG.GT.0) THEN
+              !Check if woodland species and calculate biomass based FIA equation
+              CALL NVB_RefSpcData(FIASPCD,SPGRPCD,WDSG,SFTHRD,CF,
+     &            ERRFLAG,SPGRNWF,SPDRYWF)
+              IF(SPGRPCD.EQ.10)THEN
+                  ERRFLAG = 0
+                  STEMS = FCLASS
+                  IF(DRCOB.LT.0.1.AND.DBHOB.GE.0.1) DRCOB=DBHOB
+                  !FIA adjust missing top VOL using CULLMSTOP (20240426)
+                  CV15 = VOL(1)
+                  IF(CULLMSTOP.GT.0) CV15 = CV15*(1-CULLMSTOP/100)
+                  IF(REGN.EQ.5.OR.REGN.EQ.6)THEN
+                      !For woodland species in pacific NW calculated as CVT*WDDEN
+                      DRYBIO(1) = CV15*WDSG
+                  ELSE
+                      !For woodland species in  RockyMountain region   
+                    CALL WOODLAND_BIO(FIASPCD, DRCOB,HTTOT,STEMS,CV15,
+     &              DRYBIO,ERRFLAG)
+                  ENDIF
+                      
+                  !Calculate foliage using Jenkins equation. This is to match FIA foliage calculation
+                  !Calculate foliage for LIVE tree only    
+                  BIOMS = 0
+                  CALL JENKINS(FIASPCD,DRCOB,BIOMS)
+                  FOLIAGE = BIOMS(4)
+                  IF(LIVE.EQ.'D') FOLIAGE = 0
+                  !Adjust foliage for missing top tree
+                  IF(BRKHT.GT.0.AND.BRKHT.LT.HTTOT)THEN
+                      CALL NVB_EcoProv(REGN,FORST,DIST,EcoProv)
+                      IF(LIVE.EQ.'L'.AND.CR.EQ.0) CR = 1
+                      CALL NVB_BrchRem(EcoProv,FIASPCD,BRKHT,HTTOT,CR,
+     &                  BrchRem)
+                      FOLIAGE = FOLIAGE*BrchRem
+                  ENDIF
+                  !Reset the foliage result
+                  !DRYBIO(13) = FOLIAGE
+                  !calc carbon
+                  DRYBIO(15) = DRYBIO(1)*CF
+                  !Adhust CULL for VOL and DRYBIO (20240428)
+                  VOL(1) = VOL(1)*(1-(CULL + CULLMSTOP)/100)
+                  VOL(4) = VOL(4)*(1-(CULL + CULLMSTOP)/100)
+                  IF(LIVE.EQ.'L'.AND.CULL.GT.0)THEN
+                    DecayProp = 0.92
+                    IF(FIASPCD.GE.300) DecayProp = 0.54
+                    DRYBIO = DRYBIO*(1.0 - CULL/100 * (1.0 - DecayProp))  
+                  !ENDIF
+                  !Adjust wood denProp besed on DECAYCD (2025/05/08)
+                  !IF(DECAYCD.GT.0)THEN
+                  ELSEIF(LIVE.EQ.'D')THEN
+                      IF(DECAYCD.EQ.0) DECAYCD = 3
+                      CALL DecayDenProp(SFTHRD,DECAYCD,DenProp,DeadCF)
+                      DRYBIO = DRYBIO*DenProp
+                      DRYBIO(15) = DRYBIO(1)*DeadCF
+                  ENDIF
+                  !Reset the foliage result
+                  DRYBIO(13) = FOLIAGE
+                  !calc green weight
+                  CALL GetRegnWF(REGN,FORST,FIASPCD,SPGRNWF,DeadWF,PROD)
+                  IF(LIVE.EQ.'L')THEN
+                      MC = (SPGRNWF-SPDRYWF)/SPDRYWF
+                  ELSE
+                      MC = (DeadWF-SPDRYWF)/SPDRYWF
+                  ENDIF
+                  GRNBIO = DRYBIO*(1+MC)
+              ENDIF
+              IF(ERRFLAG.GT.0) ERRFLAG = 0
+              RETURN
+          ENDIF
           !NVBVOL = 0
           !NVBLOGVOL = 0
           !NVBLOGLEN = 0
@@ -771,29 +919,129 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
           !Set CTYPE to B to make the calc same as FIA except the MTOPP and MTOPS
           IF(CTYPE.NE.'I') CTYPE = 'B'
           CALL NVBC(REGN,FORST,DIST,NVBEQN,DBHOB,HTTOT,MTOPP,MTOPS,
-     +    HT1PRD,HT2PRD,STUMP,PROD,BRKHT,BRKHTD,
+     +    NVBHT1PRD,NVBHT2PRD,STUMP,PROD,BRKHT,BRKHTD,
      +     LIVE,CR,CULL,DECAYCD,NVBLOGLEN,NVBLOGDIA,
-     +    NVBLOGVOL,NVBBOLHT,TLOGS,NOLOGP,NOLOGS,NVBVOL,DRYBIO,GRNBIO,
-     +    ERRFLAG2,FIASPCD,CTYPE)
-          !Adjust the biomass result based on the merch volume from Cruise VOLEQ
-          IF(NVBVOL(4).GT.0.AND.VOL(4).GT.0)THEN
-              Vfactor = VOL(4)/NVBVOL(4)
-          ELSEIF(NVBVOL(1).GT.0.AND.VOL(1).GT.0)THEN
-              Vfactor = VOL(1)/NVBVOL(1)
+     +    NVBLOGVOL,NVBBOLHT,NVBTLOGS,NVBNOLOGP,NVBNOLOGS,NVBVOL,
+     +    DRYBIO,GRNBIO,ERRFLAG2,FIASPCD,CTYPE)
+          
+          !Recalculate GRNBIO using freen weight factor and VOL from cruise VOLEQ(20241114)
+          CALL GetRegnWF(REGN,FORST,FIASPCD,SPGRNWF,DeadWF,PROD)
+          !get the secondary weight factor
+          PROD2='20'
+          WF2 = 0
+          CALL GetRegnWF(REGN,FORST,FIASPCD,WF2,DeadWF,PROD2)
+          IF(LIVE.EQ.'L')THEN
+              WF = SPGRNWF
+          ELSE
+              WF = DeadWF
+              WF2 = WF
           ENDIF
+          !calculate moisture content
+          IF(DRYBIO(1).GT.0) THEN
+              MC = GRNBIO(1)/DRYBIO(1) - 1.0
+          ELSE
+              CALL NVB_RefSpcData(FIASPCD,SPGRPCD,WDSG,SFTHRD,CF,
+     &        ERRFLAG,SPGRNWF,SPDRYWF)
+              MC = (WF - SPDRYWF)/SPDRYWF
+          ENDIF
+          WtPrim = 0
+          WtPrimWd = 0
+          WtPrimBk = 0
+          WtTW = 0
+          WtTWwd = 0
+          WtTWbk = 0
+          WtTip = 0
+          WtTipWd = 0
+          WtTipBk = 0
+          WtStem = 0
+          WtStemWd = 0
+          WtStemBk = 0
+          IF(WF2.LT.1) WF2 = WF
+          WtPrim = VOL(4)*WF
+          WtTW = VOL(7)*WF2
+          WtMerchStem = WtPrim + WtTW
+          Rprim = 1
+          IF(WtMerchStem.GT.0) Rprim = WtPrim/WtMerchStem
+          WtMstemNVB = GRNBIO(6)+GRNBIO(7)+GRNBIO(8)+GRNBIO(9)
+          Vfactor = 1
+          IF(WtMstemNVB.GT.0.AND.WtMerchStem.GT.0) THEN
+              Vfactor=WtMerchStem/WtMstemNVB
+              Rwood = (GRNBIO(6)+GRNBIO(8))/WtMstemNVB
+          ELSE
+              WtStem = VOL(1)*WF
+              IF((GRNBIO(2)+GRNBIO(3)).GT.0) THEN
+                  Vfactor = WtStem/(GRNBIO(2)+GRNBIO(3))
+                  Rwood = GRNBIO(2)/(GRNBIO(2)+GRNBIO(3))
+              ELSE
+                  Vfactor = 1
+                  Rwood = 1
+              ENDIF
+          ENDIF
+          IF(Vfactor.LE.0) Vfactor = 1
           DRYBIO = DRYBIO*Vfactor
           GRNBIO = GRNBIO*Vfactor
-          !Set topwood biomass to 0 when VOL(7) = 0
-          IF(VOL(7).EQ.0)THEN
-              DRYBIO(10) = DRYBIO(10)+DRYBIO(8)
-              DRYBIO(8) = 0
-              DRYBIO(11) = DRYBIO(11)+DRYBIO(9)
-              DRYBIO(9) = 0
-              GRNBIO(10) = GRNBIO(10)+GRNBIO(8)
-              GRNBIO(8) = 0
-              GRNBIO(11) = GRNBIO(11)+GRNBIO(9)
-              GRNBIO(9) = 0
+          !Reset GRNBIO stem component
+          WtMstmNVBdry = DRYBIO(6)+DRYBIO(7)+DRYBIO(8)+DRYBIO(9)
+          IF(VOL(4).GT.0) THEN
+              GRNBIO(6) = WtPrim*Rwood
+              GRNBIO(7) = WtPrim*(1.0-Rwood)
+              DRYBIO(6) = Rprim*WtMstmNVBdry*Rwood
+              DRYBIO(7) = Rprim*WtMstmNVBdry*(1.0-Rwood)
+          ELSE
+              GRNBIO(6) = 0
+              GRNBIO(7) = 0
+              DRYBIO(6) = 0
+              DRYBIO(7) = 0
           ENDIF
+          IF(VOL(7).GT.0) THEN
+              GRNBIO(8) = WtTW*Rwood
+              GRNBIO(9) = WtTW*(1.0-Rwood)
+              DRYBIO(8) = (1.0-Rprim)*WtMstmNVBdry*Rwood
+              DRYBIO(9) = (1.0-Rprim)*WtMstmNVBdry*(1.0-Rwood)
+          ELSE
+              GRNBIO(8) = 0
+              GRNBIO(9) = 0
+              DRYBIO(8) = 0
+              DRYBIO(9) = 0
+          ENDIF
+          IF(VOL(15).GT.0) THEN
+              WtTip = VOL(15)*WF2
+              WtTipDiff = WtTip-GRNBIO(10)-GRNBIO(11)
+              WtTipDiffDry = WtTipDiff/(1.0+MC)
+              GRNBIO(10) = WtTip*Rwood
+              GRNBIO(11) = WtTip*(1.0-Rwood)
+              DRYBIO(10) = GRNBIO(10)/(1.0+MC)
+              DRYBIO(11) = GRNBIO(11)/(1.0+MC)
+          ENDIF
+          !Adjust AGB and main stem total
+          GRNBIO(2) = GRNBIO(4)+GRNBIO(6)+GRNBIO(8)+GRNBIO(10)
+          GRNBIO(3) = GRNBIO(5)+GRNBIO(7)+GRNBIO(9)+GRNBIO(11)
+          DRYBIO(2) = DRYBIO(4)+DRYBIO(6)+DRYBIO(8)+DRYBIO(10)
+          DRYBIO(3) = DRYBIO(5)+DRYBIO(7)+DRYBIO(9)+DRYBIO(11)
+          GRNBIO(1) = GRNBIO(2)+GRNBIO(3)+GRNBIO(12)
+          DRYBIO(1) = DRYBIO(2)+DRYBIO(3)+DRYBIO(12)
       ENDIF
       RETURN
+      END
+!----------------------------------------------------------------------
+      !Set the log weight in LOGVOL for CTYPE = Cruise
+      !Set the log weight to LOGVOL(7,I) which is Intl BDFT for other CTYPE
+      SUBROUTINE CruiseLogWt(LOGVOL,NOLOGP,NOLOGS,WTFAC,WTFAC2)
+      IMPLICIT NONE
+      REAL LOGVOL(7,20),WTFAC,WTFAC2
+      REAL NOLOGP,NOLOGS
+      INTEGER NLOGP,NLOGS,I,J
+      NLOGP = CEILING(NOLOGP)
+      NLOGS = CEILING(NOLOGS)
+      IF(NLOGP.GE.1) THEN
+          DO I = 1, NLOGP
+              LOGVOL(7,I) = LOGVOL(4,I)*WTFAC
+          ENDDO
+      ENDIF
+      IF(NLOGS.GE.1)THEN
+          DO J = 1+NLOGP, NLOGP+NLOGS
+              LOGVOL(7,J) = LOGVOL(4,J)*WTFAC2
+          ENDDO
+      ENDIF
+      RETURN    
       END
