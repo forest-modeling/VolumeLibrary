@@ -40,6 +40,7 @@ C YW 2022/11/23 Added the call TOP6LEN R2 Black Hills equation 223DVEW122
 C YW 2023/06/05 Modified VOLINITNVB for resetting CTYPE
 ! YW 2023/08/18 Check STUMP>0 before calc stump vol
 ! YW 2025/02/19 Set log weight to LOGVOL for CTYPE = 'C' (Cruise only)
+! YW 2025/12/16 Changed R4 MAT equation for Forest 17 (HT NF) to use R5 Merch rules
 !**********************************************************************
       CHARACTER*1  HTTYPE,LIVE,CTYPE,VOLEQREGN
       CHARACTER*2  FORST,PROD,PROD2
@@ -274,15 +275,27 @@ c  save FCLASS value
      +      AVGZ2,HTREF,DBTBH,BTR,LOGDIA,BOLHT,LOGLEN,LOGVOL,VOL,
      +      TLOGS, NOLOGP,NOLOGS,CUTFLG,BFPFLG,CUPFLG,CDPFLG,SPFLG,
      +      DRCOB,CTYPE,FCLASS,PROD,ERRFLAG)
-      ELSEIF (MDL.EQ.'MAT' .OR. MDL.EQ.'mat') THEN
+        ELSEIF (MDL.EQ.'MAT' .OR. MDL.EQ.'mat') THEN
 !**********************
 !    REGION 4 MODEL  * 
 !**********************
-
+!    Comment out the test for R4 Forest 17 changes because no R4 official notice yet (20260209)        
+!        !Region 4 Forest 17 (HT NF uses Region 5 merch rules (20251216)
+!        IF(REGN.EQ.4.AND.FORST.EQ.'17')THEN
+!            REGN = 5
+!        CALL PROFILE (REGN,FORST,VOLEQ,MTOPP,MTOPS,STUMP,DBHOB,HTTYPE,
+!     +      HTTOT,HTLOG,HT1PRD,HT2PRD,UPSHT1,UPSHT2,UPSD1,UPSD2,AVGZ1,
+!     +      AVGZ2,HTREF,DBTBH,BTR,LOGDIA,BOLHT,LOGLEN,LOGVOL,VOL,
+!     +      TLOGS, NOLOGP,NOLOGS,CUTFLG,BFPFLG,CUPFLG,CDPFLG,SPFLG,
+!     +      DRCOB,CTYPE,FCLASS,PROD,ERRFLAG)
+!        !Reset REGN variable to 4
+!           REGN = 4
+!        ELSE
         CALL R4VOL(REGN,VOLEQ,MTOPP,HTTOT,DBHOB,HT1PRD,VOL,NOLOGP,
      +             NOLOGS,LOGDIA,LOGLEN,LOGVOL,BOLHT, 
      +             CUTFLG,BFPFLG,CUPFLG,CDPFLG,SPFLG,ERRFLAG)
         TLOGS = ANINT(NOLOGP + NOLOGS)
+!        ENDIF
       ELSEIF (MDL.EQ.'TRF' .OR. MDL.EQ.'trf')THEN
 C********************************
 C      PNW terif VOLUME EQUATION

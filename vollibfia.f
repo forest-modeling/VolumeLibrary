@@ -414,6 +414,7 @@ c     variables from VOLINIT
       CHARACTER*2  FORST,PROD
       character*4  CONSPEC
       CHARACTER*10 VOLEQ
+      CHARACTER*11 VOLEQ11
       CHARACTER*2  DIST,VAR
    
 !   MERCH VARIABLES 
@@ -451,6 +452,7 @@ C  variables for call NVB
       GRNBIO = 0
 !********************************************************************
       VOLEQ   = VOLEQI(1:10)
+      VOLEQ11 = VOLEQ
 !     Set default value for unused variables
       IF(IFORST.GT.99) THEN
         FORST = '01'
@@ -512,7 +514,7 @@ c      MTOPP=0.0
       READ (VOLEQ(8:10), '(I3)') FIASPCD
       
       IF(VOLEQ(1:3).EQ.'NVB')THEN
-        CALL NVBC(REGN,FORST,DIST,VOLEQ,DBHOB,HTTOT,MTOPP,MTOPS,
+        CALL NVBC(REGN,FORST,DIST,VOLEQ11,DBHOB,HTTOT,MTOPP,MTOPS,
      + HT1PRD,HT2PRD,STUMP,PROD,BRKHT,BRKHTD,LIVE,CR,CULL,DECAYCD,
      + LOGLEN,LOGDIA,LOGVOL,BOLHT,
      + TLOGS,NOLOGP,NOLOGS,VOL,DRYBIO,GRNBIO,ERRFLAG,FIASPCD,CTYPE)
