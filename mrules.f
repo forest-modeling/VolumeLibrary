@@ -24,11 +24,18 @@ C
       USE VOLINPUT_MOD
 C     SETS MERCHANDIZING STANDARDS AND SOME ERROR CHECKNING
 C
+      ! Merch rule parameters can be set externally for conifer and hardwood
+      use fvs_api, only : use_api_mrules, mrule_cor, mrule_evod
+     &  , mrule_maxlen, mrule_minlen, mrule_minlent, mrule_opt
+     &  , mrule_stump, mrule_mtopp
+     &  , mrule_mtops, mrule_trim, mrule_merchl, mrule_minbfd
+     &  , get_mrule_idx
+     
       CHARACTER*1 COR 
       CHARACTER*2 FORST, PROD                 
       CHARACTER*3 MDL                 
       character*10 VOLEQ
-      INTEGER EVOD,OPT,REGN,spp
+      INTEGER EVOD,OPT,REGN,spp,i
       REAL MAXLEN,MINLEN,MERCHL,MTOPP,MTOPS,STUMP,TRIM
       REAL MINLENT,MINBFD,BTR,DBTBH,DBHOB
       REAL TREESTUMP,TREEMTOPP,TREEMTOPS,TREEBTR,TREEDBTBH
@@ -41,6 +48,32 @@ C
       TREEDBTBH = DBTBH      
                   
       IF(BTR.GT.0.0 .AND. DBTBH.LE.0) DBTBH = DBHOB-(DBHOB*BTR/100.0)
+
+      if (use_api_mrules) then
+        ! write(*,*) '*** MRules -> Using API MRules'
+        ! Extract FIA species code from the profile equation number
+        read(voleq(8:10),'(i3)') spp
+
+        ! FIXME: There are no profile equations for hardwood
+        ! Select the merch rules
+        i = get_mrule_idx(spp)
+
+        COR = mrule_cor(i)
+        EVOD = mrule_evod(i)
+        MAXLEN = mrule_maxlen(i)
+        MINLEN = mrule_minlen(i)
+        minlent = mrule_minlent(i)
+        OPT = mrule_opt(i)
+        STUMP = mrule_stump(i)
+        MTOPP = mrule_mtopp(i)
+        MTOPS = mrule_mtops(i)
+        TRIM = mrule_trim(i)
+        MERCHL = mrule_merchl(i)
+        MINBFD = mrule_minbfd(i)
+
+        return
+
+      endif
       
       MDL = VOLEQ(4:6)
       IF(REGN.EQ.1) THEN
