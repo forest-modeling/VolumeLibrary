@@ -59,6 +59,7 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
       REAL Vtotob2,Vsawib2,Vsawob2,Vsawbk2,Vmrchib2,Vmrchob2,Vmrchbk2
       REAL Vtwib2,Vtwob2,Vtwbk2,Vtipib2,Vtipbk2,Rsaw2,Rmrch2
       REAL DeadCF,SPGRNWF,SPDRYWF, SPREGNWF,DeadWF,WtFac2
+      REAL Ib2ObRatio, MTOPPob, MTOPSob,aOB,bOB,TOTLOGV,Vmerch,DOB
       CHARACTER*3 SPC
       !Check VOLEQ is valid
       IF(VOLEQ(1:3).NE.'NVB')THEN
@@ -303,10 +304,12 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
       CALL NVB_Vbk(VOLEQ,DBHOB,HTTOT,Vtotbk,ERRFLG,SPGRPCD,WDSG)
       Vbkmiss = Vtotbk*(1-Rrem)
       VtotbkSound = Vtotbk*Rrem
+      Ib2ObRatio = sqrt(Vtotib/(Vtotib+Vtotbk))
       ! (3) addup for the Vtotob
       Vtotob = Vtotib + Vtotbk
       Vobmiss = Vibmiss + Vbkmiss
       VtotobSound = VtotibSound+VtotbkSound
+      CALL NVB_Vob(VOLEQ,DBHOB,HTTOT,Vtotob2,ERRFLG,SPGRPCD,WDSG)
       ! (4) calculate stump vol
       CALL NVB_GetRatioCOEF(VOLEQ,Tbl5Cnt,SPCOEF,JKCOEF,a,b,SPGRPCD)
       CALL CalcRatio(HTTOT,STUMP,RatioEQ,a,b,Rstump)
@@ -321,12 +324,17 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
       !Timber Cruise and FVS calculates it as sum of log volumes with trim removed between logs
       IF(HT1PRD.LE.0.AND.MTOPP.LT.DBHOB)THEN
           IF(CTYPE.EQ.'I'.OR.CTYPE.EQ.'i')THEN
-              CALL NVB_HT2TOPDob(VOLEQ,DBHOB,HTTOT,Vtotob2,MTOPP,HT1PRD,
-     &        ERRFLG,SPGRPCD,WDSG)
-          ELSE    
-              CALL NVB_HT2TOPDib(VOLEQ,DBHOB,HTTOT,Vtotib,MTOPP,HT1PRD,
-     &        ERRFLG,SPGRPCD,WDSG)
+              MTOPPob = MTOPP
+!              CALL NVB_HT2TOPDob(VOLEQ,DBHOB,HTTOT,Vtotob2,MTOPP,HT1PRD,
+!     &        ERRFLG,SPGRPCD,WDSG)
+          ELSE
+              MTOPPob = MTOPP/Ib2ObRatio
+!              CALL NVB_HT2TOPDib(VOLEQ,DBHOB,HTTOT,Vtotib,MTOPP,HT1PRD,
+!     &        ERRFLG,SPGRPCD,WDSG)
           ENDIF
+          !Merch height calculation using DOB and outside bark coefficient
+          CALL NVB_HT2TOPDob(VOLEQ,DBHOB,HTTOT,Vtotob2,MTOPPob,HT1PRD,
+     &        ERRFLG,SPGRPCD,WDSG)
           !Check the broken height
           IF(BRKHT.GT.0.AND.BRKHT.LT.HT1PRD) HT1PRD=BRKHT
       ENDIF
@@ -344,11 +352,15 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
       LOGST = 0
       NLOGP = 0
       NUMSEG = 0
+      TOTLOGV = 0.0
       R = 0
       HTsaw = STUMP
       !Moved the DIBL (DBHIN) calculation here avoid DIBL=0 for trees with no saw prod 
       HT2 = 4.5
-      CALL NVB_CalcDiaAtHT(Vtotib,a,b,HTTOT,HT2,DIB)
+      CALL NVB_GetRatioCOEFob(VOLEQ,SPGRPCD,aOB,bOB)
+      CALL NVB_CalcDiaAtHT(Vtotob2,aOb,bOB,HTTOT,HT2,DOB)
+      DIB = DOB*Ib2ObRatio
+      !CALL NVB_CalcDiaAtHT(Vtotib,a,b,HTTOT,HT2,DIB)
       LOGDIA(1,2)= DIB
       LOGDIA(1,1)=NINT(DIB)
       BOLHT(1) = HT2
@@ -367,8 +379,8 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
               RETURN
           ENDIF
           CALL SEGMNT(OPT,EVOD,LMERCH,MAXLEN,MINLEN,TRIM,NUMSEG,LOGLEN)
-          CALL NVB_CalcLOGVOL(LOGST,NUMSEG,DIBL,HT2,Vtotib,TRIM,HTTOT,
-     +  LOGLEN,LOGDIA,LOGVOL,BOLHT,VOL,COR,a,b)
+          CALL NVB_CalcLOGVOL(LOGST,NUMSEG,DIBL,HT2,Vtotob2,TRIM,HTTOT,
+     +  LOGLEN,LOGDIA,LOGVOL,BOLHT,VOL,COR,aOB,bOB,Ib2ObRatio,TOTLOGV)
           LOGST = NUMSEG
           NOLOGP = NUMSEG
           HTsaw = HT2
@@ -385,12 +397,16 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
       !Added check MTOPS < DBHOB (2025/10/20)
       IF(HT2PRD.LE.0.AND.MTOPS.LT.DBHOB)THEN
           IF(CTYPE.EQ.'I'.OR.CTYPE.EQ.'i')THEN
-              CALL NVB_HT2TOPDob(VOLEQ,DBHOB,HTTOT,Vtotob2,MTOPS,HT2PRD,
-     &        ERRFLG,SPGRPCD,WDSG)
+              MTOPSob = MTOPS
+!              CALL NVB_HT2TOPDob(VOLEQ,DBHOB,HTTOT,Vtotob2,MTOPS,HT2PRD,
+!     &        ERRFLG,SPGRPCD,WDSG)
           ELSE
-              CALL NVB_HT2TOPDib(VOLEQ,DBHOB,HTTOT,Vtotib,MTOPS,HT2PRD,
-     &        ERRFLG,SPGRPCD,WDSG)
+              MTOPSob = MTOPS/Ib2ObRatio
+!              CALL NVB_HT2TOPDib(VOLEQ,DBHOB,HTTOT,Vtotib,MTOPS,HT2PRD,
+!     &        ERRFLG,SPGRPCD,WDSG)
           ENDIF
+          CALL NVB_HT2TOPDob(VOLEQ,DBHOB,HTTOT,Vtotob2,MTOPSob,HT2PRD,
+     &        ERRFLG,SPGRPCD,WDSG)
           !Check the broken height
           IF(BRKHT.GT.0.AND.BRKHT.LT.HT2PRD) HT2PRD=BRKHT
       ENDIF
@@ -427,8 +443,8 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
               LOGLEN(I+LOGST) = LOGLENT(I)
  600        CONTINUE
           
-            CALL NVB_CalcLOGVOL(LOGST,NUMSEG,DIBL,HT2,Vtotib,TRIM,HTTOT,
-     +      LOGLEN,LOGDIA,LOGVOL,BOLHT,VOL,COR,a,b)
+          CALL NVB_CalcLOGVOL(LOGST,NUMSEG,DIBL,HT2,Vtotob2,TRIM,HTTOT,
+     +    LOGLEN,LOGDIA,LOGVOL,BOLHT,VOL,COR,aOB,bOB,Ib2ObRatio,TOTLOGV)
             LOGST = LOGST + NUMSEG
           ENDIF
           HTmrch = HT2
@@ -443,6 +459,11 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
       ENDIF
       IF(HT2PRD.LE.0) HT2PRD = HTmrch
       CALL CalcRatio(HTTOT,HTmrch,RatioEQ,a,b,Rmrch)
+      !Adjust log cubic volume to line up with merch vol from stump to merch top
+      Vmerch = Vtotib*Rmrch - Vstumpib;
+      DO 700 I = 1, 20
+          LOGVOL(4,I) = LOGVOL(4,I)*Vmerch/TOTLOGV
+700   CONTINUE
       ! tip volume
       !IF(NLOGS.GT.0) R = Rmrch
       IF(CTYPE.EQ.'I'.OR.CTYPE.EQ.'i')THEN
@@ -468,8 +489,8 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
           Vtwib = Vtwib2
           Vtwbk = Vtwbk2
       ELSE
-          VOL(4) = VOL(4)*(1-CULL/100)
-          VOL(7) = VOL(7)*(1-CULL/100)
+          VOL(4) = VOL(4)*(1-CULL/100)*Vmerch/TOTLOGV
+          VOL(7) = VOL(7)*(1-CULL/100)*Vmerch/TOTLOGV
       ENDIF
       !Apply CULL to VOL(2),VOL(4),VOL(7),VOL(10) calculated in LOGVOL
       VOL(2) = VOL(2)*(1-CULL/100)
@@ -652,14 +673,19 @@ C Stem height to a top diameter inside bark
       IMPLICIT NONE
       CHARACTER*11 VOLEQ
       INTEGER ERRFLG,SPGRPCD
-      REAL DBHOB,HTTOT,Vib,TOPD,HT2,a,b,WDSG 
-      INCLUDE "tables5.inc"
+      REAL DBHOB,HTTOT,Vib,TOPD,HT2,a,b,WDSG,Vbk,Vob 
+      !INCLUDE "tables5.inc"
       HT2=0
-      CALL NVB_GetRatioCOEF(VOLEQ,Tbl5Cnt,SPCOEF,JKCOEF,a,b,SPGRPCD)
+      !CALL NVB_GetRatioCOEF(VOLEQ,Tbl5Cnt,SPCOEF,JKCOEF,a,b,SPGRPCD)
       IF(Vib.LE.0)THEN
           CALL NVB_Vib(VOLEQ,DBHOB,HTTOT,Vib,ERRFLG,SPGRPCD,WDSG)
       ENDIF
-      CALL NVB_CalcHT2TOPD(Vib,a,b,HTTOT,TOPD,HT2)
+      !CALL NVB_CalcHT2TOPD(Vib,a,b,HTTOT,TOPD,HT2)
+      CALL NVB_Vbk(VOLEQ,DBHOB,HTTOT,Vbk,ERRFLG,SPGRPCD,WDSG)
+      TOPD = TOPD/sqrt(Vib/(Vib+Vbk))
+      CALL NVB_Vob(VOLEQ,DBHOB,HTTOT,Vob,ERRFLG,SPGRPCD,WDSG)
+      CALL NVB_HT2TOPDob(VOLEQ,DBHOB,HTTOT,Vob,TOPD,HT2,ERRFLG,
+     & SPGRPCD,WDSG)
       RETURN
       END
 !----------------------------------------------------------------------
@@ -686,14 +712,23 @@ C Calc Dia inside bark at a given height
       IMPLICIT NONE
       CHARACTER*11 VOLEQ
       INTEGER ERRFLG,SPGRPCD
-      REAL DBHOB,HTTOT,Vib,DIB,HT2,a,b,WDSG 
-      INCLUDE "tables5.inc"
+      REAL DBHOB,HTTOT,Vib,DIB,HT2,a,b,WDSG
+      REAL Vob,Vbk,Ib2ObRatio,DOB
+      !INCLUDE "tables5.inc"
       DIB=0
-      CALL NVB_GetRatioCOEF(VOLEQ,Tbl5Cnt,SPCOEF,JKCOEF,a,b,SPGRPCD)
+      !CALL NVB_GetRatioCOEF(VOLEQ,Tbl5Cnt,SPCOEF,JKCOEF,a,b,SPGRPCD)
       IF(Vib.LE.0)THEN
           CALL NVB_Vib(VOLEQ,DBHOB,HTTOT,Vib,ERRFLG,SPGRPCD,WDSG)
       ENDIF
-      CALL NVB_CalcDiaAtHT(Vib,a,b,HTTOT,HT2,DIB)
+      !CALL NVB_CalcDiaAtHT(Vib,a,b,HTTOT,HT2,DIB)
+      CALL NVB_Vob(VOLEQ,DBHOB,HTTOT,Vob,ERRFLG,SPGRPCD,WDSG)
+      CALL NVB_Vbk(VOLEQ,DBHOB,HTTOT,Vbk,ERRFLG,SPGRPCD,WDSG)
+      Ib2ObRatio = sqrt(Vib/(Vib+Vbk))
+      CALL NVB_DobAtHT(VOLEQ,DBHOB,HTTOT,Vob,HT2,DOB,ERRFLG,
+     & SPGRPCD,WDSG)
+      !calculated DOB mutily ratio factor to get DIB
+      !this is to avoid DIB > DOB
+      DIB = DOB*Ib2ObRatio
       RETURN
       END
 !----------------------------------------------------------------------
@@ -1017,6 +1052,18 @@ C For inside bark diameter, input TCUFT inside bark and inside bark coef (a,b)
      >    (1-HT2/THT)**(a-1)*(1-(1 - HT2/THT)**a)**(b-1)))
       RETURN
       END
+      
+      SUBROUTINE NVB_CalcDibAtHT(Vtotob,aOB,bOB,THT,HT2,DIB,Ib2ObRatio)
+      IMPLICIT NONE
+      REAL HT2,DIA,aOb,bOB,TCUFT,THT,DOB,DIB,Ib2ObRatio,Vtotob
+      
+      DOB = 0
+      IF(HT2.GE.THT) RETURN
+      DOB=SQRT((Vtotob/ 0.005454154 / THT) * (aOB * bOB * 
+     >    (1-HT2/THT)**(aOB-1)*(1-(1 - HT2/THT)**aOB)**(bOB-1)))
+      DIB = DOB*Ib2ObRatio
+      RETURN
+      END
 C----------------------------------------------------------------------
 C Get ratio coef alpha (a) and belta (b) for the VOLEQ
       SUBROUTINE NVB_GetRatioCOEF(VOLEQ,COEFCNT,SPCOEF,JKCOEF,a,b,
@@ -1039,23 +1086,51 @@ C Get ratio coef alpha (a) and belta (b) for the VOLEQ
       ENDIF
       RETURN
       END
+C------------------------------------------
+      SUBROUTINE NVB_GetRatioCOEFob(VOLEQ,SPGRPCD,aOB,bOB)
+      IMPLICIT NONE
+      CHARACTER*11 VOLEQ
+      INTEGER EQN, SPGRPCD, SPCD
+      REAL aOB, bOB
+      REAL a,a0,a1,b,b0,b1,b2,c,c1
+      INCLUDE "tables4.inc"
+      CALL SPEQCOEF(VOLEQ,Tbl4CNT,SPCOEF,SPCD,EQN,
+     & a,a0,a1,b,b0,b1,b2,c,c1)
+      IF(EQN.EQ.0)THEN
+      !If the equation is not in the list, then using Jenkins group equation
+          CALL JKEQCOEF(SPGRPCD,JKCOEF,EQN,a,b,c)
+          IF(EQN.EQ.0)THEN
+              !No species match, then use species 999
+              CALL OTEQCOEF(Tbl4CNT,SPCOEF,EQN,a,a0,a1,b,b0,b1,b2,c,c1)
+          ENDIF
+      ENDIF
+      aOB = a
+      bOB = b
+      RETURN
+      END
 C**************************************************************
-C Calculate LOGDIA, LOGVOL, BOLHT and VOL      
+C Calculate LOGDIA, LOGVOL, BOLHT and VOL
+! Added input parameter Ib2ObRatio          
+! calculation use outside bark coefficient a and b, then DOB is converted to DIB using ratio          
       SUBROUTINE NVB_CalcLOGVOL(LOGST,NUMSEG,DIBL,HT2,TCUFT,TRIM,THT,
-     + LOGLEN,LOGDIA,LOGVOL,BOLHT,VOL,COR,a,b)
+     + LOGLEN,LOGDIA,LOGVOL,BOLHT,VOL,COR,a,b, Ib2ObRatio,TOTLOGV)
       IMPLICIT NONE
       INTEGER LOGST,NUMSEG,I
       REAL DIBL,HT2,TCUFT,TRIM,DIB,a,b,THT,DIBS,LOGCV,LENTH,LOGV,BFINT
       REAL LOGLEN(20),LOGVOL(7,20),LOGDIA(21,3),BOLHT(21),VOL(15)
+      REAL Ib2ObRatio,DOB,TOTLOGV, LOGVT
       CHARACTER*1 COR
       
       DO 500 I=1+LOGST,NUMSEG+LOGST
           HT2=HT2+TRIM+LOGLEN(I)
-          CALL NVB_CalcDiaAtHT(TCUFT,a,b,THT,HT2,DIB)
+          CALL NVB_CalcDiaAtHT(TCUFT,a,b,THT,HT2,DOB)
+          DIB = DOB*Ib2ObRatio
           LOGDIA(I+1,2)= DIB
           LOGDIA(I+1,1)=NINT(DIB)
           BOLHT(I+1) = HT2
           DIBS = LOGDIA(I+1,1)
+          LOGVT = .00272708*(DIBL*DIBL+DIBS*DIBS)*(LOGLEN(I)+TRIM)
+          TOTLOGV = TOTLOGV+LOGVT
           LOGCV = .00272708*(DIBL*DIBL+DIBS*DIBS)*LOGLEN(I)
           LOGVOL(4,I) = ANINT(LOGCV*10)/10
           DIBL = LOGDIA(I+1,1)
@@ -1097,13 +1172,17 @@ C Calculate LOGDIA, LOGVOL, BOLHT and VOL
           ERRFLG = 9
           RETURN
       ENDIF
+      IF(BRKHTD.LE.1.0)THEN
+          HTTOT = BRKHT + 1.0
+          RETURN
+      ENDIF
       !Get the outbark ratio coefficient
       CALL NVB_GetRatioCOEF(VOLEQ,Tbl4Cnt,SPCOEF,JKCOEF,a,b,SPGRPCD)
       THT = BRKHT
       I = 3
       diff = 1
-      DO WHILE (I < 100)
-          THT = THT + I
+      DO WHILE (I < 300)
+          THT = THT + 1.0
           CALL NVB_Vob(VOLEQ,DBHOB,THT,TCUFT,ERRFLG,SPGRPCD,WDSG)
           X = BRKHT/THT  
           diff = BRKHTD - ((TCUFT/0.005454154/THT*a*b*

@@ -751,12 +751,13 @@ c       check for mainstem piece, if not, topwood must meet minimum merch length
 
 !        CALL NUMLOG(OPT,EVOD,LMERCH,MAXLEN,MINLENT,TRIM,NUMSEG)
 !  2020/02/19 changed to use the variable MINLEN instead of MINLENT
+!  Reversed the change on 2020/02/19. Using MINLEN instead of MINLENT is not correct for topwood (20260303)         
         !Added max number of logs (20) check (20250626)
         IF((LMERCH/(MAXLEN+TRIM)).GT.20)THEN
           ERRFLAG = 12
           RETURN
         ENDIF
-        CALL NUMLOG(OPT,EVOD,LMERCH,MAXLEN,MINLEN,TRIM,NUMSEG)
+        CALL NUMLOG(OPT,EVOD,LMERCH,MAXLEN,MINLENT,TRIM,NUMSEG)
 
         if((NUMSEG + LOGST) .GT. 20) THEN
            DO 401, I=1,15

@@ -281,7 +281,7 @@ c         MINBFD = 7.0
 
          COR='Y'
          EVOD = 2
-         MAXLEN = 16.0
+         MAXLEN = 16.0         
          MINLEN = 2.0
          minlent = 2.0
          

@@ -279,23 +279,22 @@ c  save FCLASS value
 !**********************
 !    REGION 4 MODEL  * 
 !**********************
-!    Comment out the test for R4 Forest 17 changes because no R4 official notice yet (20260209)        
-!        !Region 4 Forest 17 (HT NF uses Region 5 merch rules (20251216)
-!        IF(REGN.EQ.4.AND.FORST.EQ.'17')THEN
-!            REGN = 5
-!        CALL PROFILE (REGN,FORST,VOLEQ,MTOPP,MTOPS,STUMP,DBHOB,HTTYPE,
-!     +      HTTOT,HTLOG,HT1PRD,HT2PRD,UPSHT1,UPSHT2,UPSD1,UPSD2,AVGZ1,
-!     +      AVGZ2,HTREF,DBTBH,BTR,LOGDIA,BOLHT,LOGLEN,LOGVOL,VOL,
-!     +      TLOGS, NOLOGP,NOLOGS,CUTFLG,BFPFLG,CUPFLG,CDPFLG,SPFLG,
-!     +      DRCOB,CTYPE,FCLASS,PROD,ERRFLAG)
-!        !Reset REGN variable to 4
-!           REGN = 4
-!        ELSE
+!        !Region 4 Forest 17 (HT NF uses Region 5 merch rules (20260223)
+        IF(REGN.EQ.4.AND.FORST.EQ.'17')THEN
+            REGN = 5
+        CALL PROFILE (REGN,FORST,VOLEQ,MTOPP,MTOPS,STUMP,DBHOB,HTTYPE,
+     +      HTTOT,HTLOG,HT1PRD,HT2PRD,UPSHT1,UPSHT2,UPSD1,UPSD2,AVGZ1,
+     +      AVGZ2,HTREF,DBTBH,BTR,LOGDIA,BOLHT,LOGLEN,LOGVOL,VOL,
+     +      TLOGS, NOLOGP,NOLOGS,CUTFLG,BFPFLG,CUPFLG,CDPFLG,SPFLG,
+     +      DRCOB,CTYPE,FCLASS,PROD,ERRFLAG)
+        !Reset REGN variable to 4
+           REGN = 4
+        ELSE
         CALL R4VOL(REGN,VOLEQ,MTOPP,HTTOT,DBHOB,HT1PRD,VOL,NOLOGP,
      +             NOLOGS,LOGDIA,LOGLEN,LOGVOL,BOLHT, 
      +             CUTFLG,BFPFLG,CUPFLG,CDPFLG,SPFLG,ERRFLAG)
         TLOGS = ANINT(NOLOGP + NOLOGS)
-!        ENDIF
+        ENDIF
       ELSEIF (MDL.EQ.'TRF' .OR. MDL.EQ.'trf')THEN
 C********************************
 C      PNW terif VOLUME EQUATION
@@ -785,7 +784,8 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
       !Calculate biomass for trees with only DBH (no HT) using Jenkins (2021/11/01)
       IF((DBHOB.GE.0.1.OR.DRCOB.GE.0.1).AND.
      + (HTTOT.LT.1.AND.HT1PRD.LT.1.AND.HT2PRD.LT.1.AND.
-     + UPSHT1.LT.1.AND.UPSHT2.LT.1.).AND.CTYPE.EQ.'B')THEN
+!     + UPSHT1.LT.1.AND.UPSHT2.LT.1.).AND.CTYPE.EQ.'B')THEN    
+     + UPSHT1.LT.1.AND.UPSHT2.LT.1.AND.BRKHT.LT.1.0))THEN     !Removed the CTYPE = B check (20260326)
           IF(DRCOB.GE.1.AND.DBHOB.LT.1) DBHOB = DRCOB
           BIOMS = 0
           CALL JENKINS(FIASPCD,DBHOB,BIOMS)
@@ -808,6 +808,8 @@ C YW Set the total cubic vol to VOL(4) for R2 if MTOPP=0.1 (2022/05/03)
               MC = (DeadWF-SPDRYWF)/SPDRYWF
           ENDIF
           GRNBIO = DRYBIO*(1+MC)
+          !Added the error flag for no height tree (20260326)
+          ERRFLAG = 4
           RETURN
       ENDIF    
       !End Jenkins biomass calculation for trees with DBH only

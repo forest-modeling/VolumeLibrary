@@ -127,7 +127,12 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !20250822 Added check for REGN=10 in nolinit.f for CUR and DEM equation.
 !20251021 Modified nsvb.f to check MTOPS < DBHOB and limit the Ht to not below stump  
 !20260209 Modified voleqdef.f for R6_EQN species 351 red alder equation: Forest GP A16CURW351 and Siuslaw NVBM240351.     
-!         Also testing but not implement changes volinit and profile to test R4 Forest 17 MAT equation use R5 merch rules      
+!         Also testing but not implement changes volinit and profile to test R4 Forest 17 MAT equation use R5 merch rules   
+!20260304 Modified volinit.f to enable R4 Forest 17 MAT equation use R5 merch rules.     
+!20260326 (1) Added weight factor for R06F03 (GP) Red Alder, Red Cedar, and norble fir;
+!         (2) Modified NSVB equation inside bark diameter calculation to use DOB mutiply volume ratio factor
+!         (3) DBH only tree biomass to remove CTYPE='B' check and return errflag=4 (tree height < 4.5)
+!         (4) Changed R4 Forest 17 (Humboldt – Toiyabe) to use R5 merch rules      
 !...  Contains the volume library version number
 !...  This is simply the date of the latest release/version
 
@@ -157,7 +162,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !   15    FORMAT (A)   
 !   		END IF
 
-      VERSION = 20260209
+      VERSION = 20260326
       RETURN
       END SUBROUTINE VERNUM
       
@@ -190,7 +195,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !   15    FORMAT (A)   
 !   		END IF
 
-      VERSION = 20260209
+      VERSION = 20260326
       RETURN
       END SUBROUTINE VERNUM2
 
@@ -213,7 +218,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 
 !---------------------------------------------------------------------
      
-      VERSION = 20260209
+      VERSION = 20260326
       
       PRINT     '(I8)', VERSION
       RETURN
@@ -226,6 +231,6 @@ C     R program need subroutine name to be all lower case
       !DEC$ ATTRIBUTES C, REFERENCE, ALIAS:'vernum_r_'::vernum_r
 
       integer version
-      version = 20260209
+      version = 20260326
       return
       end subroutine vernum_r
