@@ -1367,7 +1367,7 @@ namespace volCStest
                     string volMDL = volEqTB.Text.ToString().ToUpper().Substring(3,2);
                     string volMDL2 = volEqTB.Text.ToString().ToUpper().Substring(0, 3);
                     string volREGN = volEqTB.Text.ToString().ToUpper().Substring(0, 1);
-                    if (volMDL == "FW" || volMDL == "WO" || volMDL == "CZ" || volMDL == "JB" || volMDL == "BE" || volMDL == "DV" || volMDL == "CL" || volMDL2 == "NVB" || volMDL == "CU" || volMDL == "DE")
+                    if (volMDL == "FW" || volMDL == "WO" || volMDL == "CZ" || volMDL == "JB" || volMDL == "BE" || volMDL == "DV" || volMDL == "CL" || volMDL2 == "NVB" || volMDL == "CU" || volMDL == "DE" || volMDL == "MA")
                     //if (volMDL == "FW" || volMDL == "WO" || volMDL == "CZ" || volMDL == "JB" || volMDL == "BE")
                     {
                         panel2.Enabled = true;

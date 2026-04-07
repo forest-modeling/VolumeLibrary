@@ -1346,6 +1346,8 @@ c calls taper equations or profile models.
       REAL slope,CUVOL,MTOPP,TOP
       REAL DBHOB,HEX(2),DEX(2),ZEX(2),PINV_Z(2),FMOD(3),F,TOP6
       REAL RHFW(4),RFLW(6),TAPCOE(12)
+      !Extra variables for R4MATTAPER
+      REAL STUMPD,BUTTCF,CF0,B
       
       FCLASS=FORMCLASS
       ineedsl = 0
@@ -1391,6 +1393,10 @@ C Added to test for BEH equation in profile(09/12/13 YW)
       ELSEIF(VOLEQ(4:6).EQ.'BEH' .OR. VOLEQ(4:6).EQ.'beh') THEN
         TLH=0.0
         CALL BEHTAP(VOLEQ,DBHOB,HTTOT,TLH,HT2,FCLASS,MTOPP,DIB)
+! Added call R4MATTAPER to enable R4 Forest 17 uses R5 merch rules (20251216)        
+      ELSEIF(VOLEQ(4:6).EQ.'MAT' .OR. VOLEQ(4:6).EQ.'mat') THEN
+        CALL R4MATTAPER(VOLEQ,DBHOB,HTTOT,STUMPD,BUTTCF,CF0,B,
+     + HT2,DIB,ERRFLAG )  
       ENDIF
 
       RETURN

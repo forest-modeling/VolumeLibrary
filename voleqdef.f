@@ -7,6 +7,8 @@ C 04/12/2017 removed 532WO2W*** equation from R5_EQN per the email from Craig Bo
 C 07/19/2021 Changed R8_CEQN to use the R8 new Clark equation 8*1CLKE***. Added 1 to TOPCODE array.
 C 02/27/2025 Updated R6_EQN for species 81 Incense cedar to use I00FW2W073 in Willamette NF  
 ! 2025/05/23 Updated R8_CEQN species list to include R8 cruise species      
+! 2024/09/09 Updated R3_EQN defaults for details see comment in R3_EQN
+! 2025/11/24 Changed R6_EQN defaults for Red Alder in GP (3) and Siuslaw(12)      
       SUBROUTINE VOLEQDEF (VAR,REGN,FORST,DIST,SPEC,PROD,VOLEQ,ERRFLAG)
 C
 C    SUBROUTINE WILL RETURN THE DEFAULT VOLUME EQUATION NUMBER
@@ -618,8 +620,10 @@ C     Blue spruce
       ELSEIF(SPEC.EQ.93.OR.SPEC.EQ.96) THEN
          IF (FORNUM.EQ.2.OR.FORNUM.EQ.12.OR.FORNUM.EQ.13)THEN
             VOLEQ = EQNUM(36)
-         ELSEIF (FORNUM.EQ.7.OR.FORNUM.EQ.8) THEN
+         ELSEIF (FORNUM.EQ.7) THEN
             VOLEQ = EQNUM(37)
+         ELSEIF (FORNUM.EQ.8) THEN
+            VOLEQ = EQNUM(56)   
           ELSE
             VOLEQ = EQNUM(38)
           ENDIF
@@ -787,6 +791,7 @@ C
 C
       READ(FORST,'(I2)')FORNUM
       DONE = 0
+      IF(SPEC.EQ.60) SPEC = 62
 C     Whitebark pine
       IF(SPEC.EQ.101) THEN
           IF(VAR.EQ.'SO' .OR. VAR.EQ.'so') THEN
@@ -851,10 +856,10 @@ C//////////////////////////////////////////////////////////////////
       CHARACTER*2 FORST,VAR,DIST
       CHARACTER*3 ASPEC
       INTEGER SPEC,ERRFLAG,FORNUM,I,FIA(53),DISTNUM
-      CHARACTER*10 EQNUMI(87),EQNUM(44)
+      CHARACTER*10 EQNUMI(87),EQNUM(44),EQNUMRD(2)
       CHARACTER*10 EQNUMC(39),EQNUMF(50),EQNUMD(15)
-      INTEGER FIRST, HALF, LAST, DONEI, DONEF
-
+      INTEGER FIRST, HALF, LAST, DONEI, DONEF, DONERD
+      
 C     All species 32' logs, All species 16' logs,
 C     Balsam fir,      Grand Fir,  Alpine Fir,       Western Larch, Engelmann spruce
 C     Lodgepole pine,  White Pine, Ponderosa pine,   Douglas Fir,   Western red cedar,
@@ -929,6 +934,12 @@ C
      >'B00BEHW351','B00BEHW361','B00BEHW361','B00BEHW431','B00BEHW542',
      >'B00BEHW631','B00BEHW747','B00BEHW800','B00BEHW800','B00BEHW998',
      >'B00BEHW999','B02BEHW202','B03BEHW202','B01BEHW202'/
+      
+      !Equation for Red Alder in GP and Siuslaw
+      DATA (EQNUMRD(I),I=1,2)/
+     >'A16CURW351','NVBM240351'/ 
+      
+      
 C
 C  SEARCH FOR VALID EQUATION NUMBER
 C
@@ -1015,6 +1026,14 @@ C
           RETURN
         ENDIF
         ENDDO
+!2025/11/24 added to check Red Alder EQNUMRD
+        DO I=1,2
+            IF(VOLEQ.EQ.EQNUMRD(I))THEN
+                ! FOUND EQUATION FOR RED ALDER
+                SPEC=8888
+                RETURN
+            ENDIF
+        ENDDO
       RETURN
       ENDIF
 C
@@ -1022,6 +1041,7 @@ C
       READ(DIST,'(I2)')DISTNUM
       DONEI = 0
       DONEF = 0
+      DONERD = 0
 
 c     Westside Variants
       IF(VAR.EQ.'PN' .OR. VAR.EQ.'WC' .OR. VAR.EQ.'NC' .OR.
@@ -1047,7 +1067,9 @@ c        Gifford Pinchot
                 ELSE IF (DISTNUM.EQ.5) THEN
                    DONEF = 10
                 ENDIF
-             ENDIF
+            ELSE IF(SPEC.EQ.351) THEN
+                DONERD = 1
+            ENDIF
 c        Mt Hood
          ELSE IF(FORNUM.EQ.6)THEN
             IF(SPEC.EQ.11) THEN
@@ -1087,6 +1109,8 @@ c        Rogue River/Siskiyo
                 ENDIF
              ELSE IF(SPEC.EQ.202) THEN
                 DONEF = 19
+             ELSE IF(SPEC.EQ.263) THEN
+                DONEF = 21
              ENDIF
 c        Siuslaw
          ELSE IF(FORNUM.EQ.12) THEN
@@ -1094,7 +1118,9 @@ c        Siuslaw
                 DONEF = 1
              ELSE IF(SPEC.EQ.263) THEN
                 DONEF = 12
-             ENDIF
+             ELSE IF(SPEC.EQ.351) THEN
+                DONERD = 2
+            ENDIF
 c        Olympic
          ELSE IF(FORNUM.EQ.9) THEN
              IF(SPEC.EQ.202) THEN
@@ -1120,12 +1146,16 @@ c        Umpqua
                 DONEI = 4
              ELSE IF(SPEC.EQ.202)THEN
                 DONEF = 1
-             ELSE IF(SPEC.EQ.242)THEN
+             ELSE IF(SPEC.EQ.242.OR.SPEC.EQ.21)THEN
                 DONEI = 1
              ELSE IF(SPEC.EQ.263)THEN
                 DONEI = 23
              ELSE IF(SPEC.EQ.264)THEN
                 DONEI = 10
+             ELSE IF(SPEC.EQ.11)THEN
+                DONEI = 76
+             ELSE IF(SPEC.EQ.103)THEN
+                DONEI = 11
              ENDIF
 c         Willamette
          ELSE IF(FORNUM.EQ.18) THEN
@@ -1147,6 +1177,8 @@ c         Willamette
              VOLEQ = EQNUMI(DONEI)
           ELSE IF(DONEF.GT.0) THEN
              VOLEQ = EQNUMF(DONEF)
+          ELSE IF(DONERD.GT.0) THEN
+              VOLEQ = EQNUMRD(DONERD)
           ELSE
 c           No INGY, find Behre's hyperbola model
             LAST = 53
@@ -1204,6 +1236,8 @@ c        Deschutes
                DONEI = 21
             ELSE IF(SPEC.EQ. 81) THEN
                DONEI = 22
+            ELSE IF(SPEC.EQ. 117) THEN
+               DONEI = 44
             ENDIF
 c        Fremont
          ELSEIF(FORNUM.EQ.2 .OR. FORNUM.EQ.20) THEN
@@ -1331,7 +1365,7 @@ c        Okanogan - Wenatchee
             ENDIF
 c        Colville
          ELSE IF(FORNUM.EQ.21) THEN
-             IF(SPEC.EQ.17) THEN
+             IF(SPEC.EQ.17.OR.SPEC.EQ.260) THEN
                 DONEI = 14
              ELSE IF(SPEC.EQ.19)THEN
                 DONEI = 21
