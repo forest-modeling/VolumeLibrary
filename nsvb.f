@@ -461,8 +461,16 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
       CALL CalcRatio(HTTOT,HTmrch,RatioEQ,a,b,Rmrch)
       !Adjust log cubic volume to line up with merch vol from stump to merch top
       Vmerch = Vtotib*Rmrch - Vstumpib;
+      !Reset VOL(4) and VOL(7)
+      VOL(4) = 0.0
+      VOL(7) = 0.0
       DO 700 I = 1, 20
           LOGVOL(4,I) = LOGVOL(4,I)*Vmerch/TOTLOGV
+          IF(I.LE.NOLOGP) THEN
+              VOL(4) = VOL(4) + LOGVOL(4,I)
+          ELSE
+              VOL(7) = VOL(7) + LOGVOL(4,I)
+          ENDIF
 700   CONTINUE
       ! tip volume
       !IF(NLOGS.GT.0) R = Rmrch
@@ -488,9 +496,9 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
           Vsawbk = Vsawbk2
           Vtwib = Vtwib2
           Vtwbk = Vtwbk2
-      ELSE
-          VOL(4) = VOL(4)*(1-CULL/100)*Vmerch/TOTLOGV
-          VOL(7) = VOL(7)*(1-CULL/100)*Vmerch/TOTLOGV
+      !ELSE
+      !    VOL(4) = VOL(4)*(1-CULL/100)*Vmerch/TOTLOGV
+      !    VOL(7) = VOL(7)*(1-CULL/100)*Vmerch/TOTLOGV
       ENDIF
       !Apply CULL to VOL(2),VOL(4),VOL(7),VOL(10) calculated in LOGVOL
       VOL(2) = VOL(2)*(1-CULL/100)
@@ -1129,9 +1137,10 @@ C Calculate LOGDIA, LOGVOL, BOLHT and VOL
           LOGDIA(I+1,1)=NINT(DIB)
           BOLHT(I+1) = HT2
           DIBS = LOGDIA(I+1,1)
-          LOGVT = .00272708*(DIBL*DIBL+DIBS*DIBS)*(LOGLEN(I)+TRIM)
-          TOTLOGV = TOTLOGV+LOGVT
+          !LOGVT = .00272708*(DIBL*DIBL+DIBS*DIBS)*(LOGLEN(I)+TRIM)
+          !TOTLOGV = TOTLOGV+LOGVT
           LOGCV = .00272708*(DIBL*DIBL+DIBS*DIBS)*LOGLEN(I)
+          TOTLOGV = TOTLOGV+LOGCV
           LOGVOL(4,I) = ANINT(LOGCV*10)/10
           DIBL = LOGDIA(I+1,1)
           !Calculate boardfoot volume
