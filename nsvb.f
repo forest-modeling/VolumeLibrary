@@ -60,6 +60,7 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
       REAL Vtwib2,Vtwob2,Vtwbk2,Vtipib2,Vtipbk2,Rsaw2,Rmrch2
       REAL DeadCF,SPGRNWF,SPDRYWF, SPREGNWF,DeadWF,WtFac2
       REAL Ib2ObRatio, MTOPPob, MTOPSob,aOB,bOB,TOTLOGV,Vmerch,DOB
+      REAL VolFactor
       CHARACTER*3 SPC
       !Check VOLEQ is valid
       IF(VOLEQ(1:3).NE.'NVB')THEN
@@ -86,6 +87,7 @@ C The elements in the variable DRYBIO and GRNBIO are weight of following:
       IF(FIASPCD.EQ.2098) FIASPCD = 98
       IF(FIASPCD.EQ.2242) FIASPCD = 242
       IF(FIASPCD.EQ.2263) FIASPCD = 263
+      VolFactor = 1.0
       VOL = 0.0
       DRYBIO = 0.0
       GRNBIO = 0.0
@@ -464,8 +466,9 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
       !Reset VOL(4) and VOL(7)
       VOL(4) = 0.0
       VOL(7) = 0.0
+      IF(TOTLOGV.GT.0.0.AND.Vmerch.GT.0.0) VolFactor = Vmerch/TOTLOGV
       DO 700 I = 1, 20
-          LOGVOL(4,I) = LOGVOL(4,I)*Vmerch/TOTLOGV
+          LOGVOL(4,I) = LOGVOL(4,I)*VolFactor
           IF(I.LE.NOLOGP) THEN
               VOL(4) = VOL(4) + LOGVOL(4,I)
           ELSE
@@ -506,6 +509,10 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
       LOGVOL = LOGVOL*(1-CULL/100)
       VsawibSound = Vsawib*(1-CULL/100)
       VtwibSound = Vtwib*(1-CULL/100)
+      IF(VsawibSound.LT.0.0) VsawibSound = 0.0
+      IF(VtwibSound.LT.0.0) VtwibSound = 0.0
+      IF(VOL(4).LT.0.0) VOL(4) = 0.0
+      IF(VOL(7).LT.0.0) VOL(7) = 0.0
       ! (7) calculate stem wood weight
       ! CULL is not deducted for Dead trees to avoid double deduction
       IF(LIVE.EQ.'D') CULL = 0
@@ -547,6 +554,7 @@ C--   USE DIB AT DBHOB FOR LARGE END BUTT LOG
       Wsawbk = Vsawbk*BKSGadj
       Wtwib = VtwibSound*WDSGadj
       Wtwbk = Vtwbk*BKSGadj
+      IF(Wtwbk.LT.0.0) Wtwbk = 0.0
       Wtipib = VtipibSound*WDSGadj
       Wtipbk = VtipbkSound*BKSGadj
       Wstumpib = VstumpibSound*WDSGadj

@@ -134,6 +134,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !         (3) DBH only tree biomass to remove CTYPE='B' check and return errflag=4 (tree height < 4.5)
 !         (4) Changed R4 Forest 17 (Humboldt – Toiyabe) to use R5 merch rules      
 !20260410 Modified nsvb.f logvol to sum match main stem merch volume
+!20260415 Fix nsvb.f divided by zero problem      
 !...  Contains the volume library version number
 !...  This is simply the date of the latest release/version
 
@@ -163,7 +164,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !   15    FORMAT (A)   
 !   		END IF
 
-      VERSION = 20260410
+      VERSION = 20260415
       RETURN
       END SUBROUTINE VERNUM
       
@@ -196,7 +197,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 !   15    FORMAT (A)   
 !   		END IF
 
-      VERSION = 20260410
+      VERSION = 20260415
       RETURN
       END SUBROUTINE VERNUM2
 
@@ -219,7 +220,7 @@ C          Added equation for blackjack 301HAB0122, 302HAB0122 and yellow pine 3
 
 !---------------------------------------------------------------------
      
-      VERSION = 20260410
+      VERSION = 20260415
       
       PRINT     '(I8)', VERSION
       RETURN
@@ -232,6 +233,6 @@ C     R program need subroutine name to be all lower case
       !DEC$ ATTRIBUTES C, REFERENCE, ALIAS:'vernum_r_'::vernum_r
 
       integer version
-      version = 20260410
+      version = 20260415
       return
       end subroutine vernum_r
